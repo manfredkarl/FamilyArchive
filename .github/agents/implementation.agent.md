@@ -20,6 +20,29 @@ Before writing any code, determine the correct implementation order:
 
 This ordering minimizes rework. Foundational code established early is reused by later features.
 
+## 2b. Test Infrastructure Setup (run once before first feature)
+
+Before entering any loop, verify that **every test runner is installed and operational**. Run each of the following and confirm it executes (not that tests pass — they should all fail at this point — but that the runner itself works):
+
+```
+1.  Install all dependencies:
+      npm install
+2.  Install Playwright browsers (REQUIRED — tests will not run without this):
+      npx playwright install --with-deps
+3.  Verify each test runner executes:
+      a. Unit tests:     cd src/api && npm test (expect: builds and runs, all tests fail)
+      b. Cucumber steps:  npx cucumber-js --dry-run  (expect: all scenarios parse successfully)
+      c. Playwright e2e:  npx playwright test --list  (expect: all tests listed, no browser errors)
+4.  If ANY runner fails to execute (missing dependencies, missing browsers,
+    configuration errors), fix the infrastructure issue BEFORE writing any
+    application code. Common fixes:
+      - "browserType.launch: Executable doesn't exist" → run npx playwright install --with-deps
+      - "Cannot find module" → run npm install
+      - "TypeScript compilation failed" → fix tsconfig.json references
+```
+
+**This step is non-negotiable.** If you skip it and a test runner fails later, you will not know whether your code is wrong or the runner is broken. Establishing that all runners execute (and fail with test assertion errors, not infrastructure errors) is your foundation.
+
 ## 3. Inner Loop: Code + Unit Tests + Step Definitions
 
 This is your tightest feedback loop. Execute it for each feature, one test at a time.
@@ -54,6 +77,8 @@ This is your tightest feedback loop. Execute it for each feature, one test at a 
 ### Inner Loop Rules
 
 - Write the MINIMUM code to pass each test. No gold-plating, no speculative abstractions.
+- **ALWAYS run tests — never assume your code is correct.** Reading tests tells you what to build; running them tells you whether you built it correctly. Both steps are mandatory. If you write code without running the corresponding test command, the loop is broken.
+- **Never skip a test execution step.** If a test runner fails to execute (not an assertion failure, but the runner itself — missing dependencies, configuration error, browser not installed), that is a **blocker**. Fix the infrastructure before continuing. Do not proceed to the next step or feature.
 - Do NOT modify tests. Only modify application code (source files, configuration, migrations).
 - If a test appears incorrect, flag it with a comment in `.spec2cloud/audit.log` but do NOT change the test. Tests are the contract.
 - Commit after each passing test group — a logical unit of work (e.g., all tests for one scenario). Use a commit message like: `feat({feature}): pass {scenario} unit tests`.
@@ -66,19 +91,23 @@ After a feature's inner loop is complete (all unit tests and Gherkin scenarios g
 1.  Start the local dev servers if not already running:
       - Backend: cd src/api && npm run dev
       - Frontend: npm run dev
-2.  Run Playwright tests for this feature only:
+2.  Verify Playwright browsers are installed (if not done in 2b):
+      npx playwright install --with-deps
+3.  Run Playwright tests for this feature only:
       npx playwright test e2e/{feature}.spec.ts
-3.  If all Playwright tests pass → this feature is complete. Move to the next feature.
-4.  If any Playwright test fails → analyze the failure:
-      a. UI rendering issue → fix frontend component code.
-      b. API integration issue → fix backend controller/service code.
-      c. Test data issue → fix seed data or test setup fixtures.
-      d. Timing issue → fix wait patterns using Playwright locators
+4.  If all Playwright tests pass → this feature is complete. Move to the next feature.
+5.  If any Playwright test fails → analyze the failure:
+      a. Runner/infrastructure error (browser not found, server not reachable)
+         → fix the infrastructure, do NOT skip the test.
+      b. UI rendering issue → fix frontend component code.
+      c. API integration issue → fix backend controller/service code.
+      d. Test data issue → fix seed data or test setup fixtures.
+      e. Timing issue → fix wait patterns using Playwright locators
          and auto-waiting. Do NOT use hardcoded delays.
-5.  After fixing, re-run the Playwright tests for this feature.
-6.  Before moving on, re-run unit tests to confirm no regressions:
-      cd src/api && npm test && cd ../web && npm test
-7.  Loop steps 4–6 until all e2e tests for this feature pass with
+6.  After fixing, re-run the Playwright tests for this feature.
+7.  Before moving on, re-run unit tests to confirm no regressions:
+      cd src/api && npm test
+8.  Loop steps 5–7 until all e2e tests for this feature pass with
     no unit test regressions.
 ```
 
@@ -112,6 +141,16 @@ After ALL features have passed their inner and middle loops, run the complete te
 ```
 
 When the full suite is green, implementation is complete.
+
+### Post-Implementation: Generate Documentation
+
+After the full suite passes, generate the living documentation site:
+
+```
+npm run docs:generate
+```
+
+This parses all Gherkin `.feature` files and matches them with screenshots captured during test runs to produce a visual user manual in `docs/`. Each feature becomes a page with step-by-step screenshots. Preview with `npm run docs:serve`.
 
 ## 6. Fast Feedback Practices
 
@@ -152,6 +191,8 @@ After each feature completes (inner loop + middle loop both green):
 
 - Do NOT modify tests unless the human explicitly instructs you to.
 - Do NOT skip failing tests or mark them as ignored/pending.
+- Do NOT skip running a test layer because of infrastructure issues — fix the infrastructure first (install browsers, restore packages, start servers).
+- Do NOT claim a feature is "done" without running ALL three test layers (unit tests, Gherkin step definitions, Playwright e2e) and seeing them pass.
 - Do NOT add features, endpoints, components, or behaviors not specified in the Gherkin scenarios or FRDs.
 - Do NOT optimize prematurely — make it work first, make it right second. Performance comes later.
 - Do NOT use hardcoded delays or `setTimeout` in application code. Use proper async patterns, event-driven waits, or polling with backoff.

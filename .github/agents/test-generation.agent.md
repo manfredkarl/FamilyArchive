@@ -222,53 +222,58 @@ project-root/
 
 ### Support Files
 
-Always generate these support files:
+Always generate these support files. **Do NOT modify `world.ts` or `hooks.ts`** — they are pre-configured with screenshot capture. Your step definitions automatically get screenshots after every step via the `AfterStep` hook.
 
-**`tests/features/support/world.ts`** — shared state for Cucumber scenarios:
+**`tests/features/support/world.ts`** — shared state for Cucumber scenarios (pre-configured):
 ```typescript
-import { setWorldConstructor, World } from '@cucumber/cucumber';
-import { Browser, BrowserContext, Page, APIRequestContext } from '@playwright/test';
+import { World, setWorldConstructor } from '@cucumber/cucumber';
+import { Browser, BrowserContext, Page, chromium } from '@playwright/test';
+import * as path from 'path';
+import * as fs from 'fs';
+
+const SCREENSHOT_BASE_DIR = path.resolve(process.cwd(), 'docs', 'screenshots');
 
 export class CustomWorld extends World {
   browser!: Browser;
   context!: BrowserContext;
   page!: Page;
-  request!: APIRequestContext;
-  // Store scenario-specific state here
-  responseStatus?: number;
-  responseBody?: unknown;
-}
 
+  featureName = '';
+  scenarioName = '';
+  stepIndex = 0;
+
+  async openBrowser() { /* ... launches Chromium, creates context at 1280x720 */ }
+  async closeBrowser() { /* ... closes context and browser */ }
+
+  get screenshotDir(): string { /* ... docs/screenshots/{feature}/{scenario}/ */ }
+  async takeStepScreenshot(stepText: string): Promise<string | undefined> {
+    /* Captures a screenshot named {stepIndex}-{step-slug}.png */
+  }
+}
 setWorldConstructor(CustomWorld);
 ```
 
-**`tests/features/support/hooks.ts`** — lifecycle hooks:
+**`tests/features/support/hooks.ts`** — lifecycle hooks with screenshot capture (pre-configured):
 ```typescript
-import { Before, After, BeforeAll, AfterAll } from '@cucumber/cucumber';
-import { chromium, Browser } from '@playwright/test';
+import { Before, After, BeforeStep, AfterStep, BeforeAll } from '@cucumber/cucumber';
 import { CustomWorld } from './world';
 
-let browser: Browser;
+BeforeAll(async function () { /* creates docs/screenshots/ directory */ });
 
-BeforeAll(async function () {
-  browser = await chromium.launch();
+Before(async function (this: CustomWorld, { pickle, gherkinDocument }) {
+  // Sets featureName, scenarioName, resets stepIndex, opens browser
 });
 
-AfterAll(async function () {
-  await browser.close();
+AfterStep(async function (this: CustomWorld, { pickleStep }) {
+  // Captures screenshot after every step → docs/screenshots/{feature}/{scenario}/{NNN}-{step}.png
 });
 
-Before(async function (this: CustomWorld) {
-  this.browser = browser;
-  this.context = await browser.newContext();
-  this.page = await this.context.newPage();
-  this.request = this.context.request;
-});
-
-After(async function (this: CustomWorld) {
-  await this.context.close();
+After(async function (this: CustomWorld, { pickle, result }) {
+  // Captures final-state screenshot (full page), closes browser
 });
 ```
+
+The hooks capture a screenshot after **every** Gherkin step. These screenshots are used by `npm run docs:generate` to build a visual user manual. Your step definitions benefit from this automatically — no extra code needed in step bodies.
 
 ---
 

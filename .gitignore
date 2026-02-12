@@ -30,3 +30,9 @@ coverage/
 
 # AZD
 .azure/
+
+# Docs (auto-generated)
+docs/features/
+docs/screenshots/
+docs/nav.yml
+site/

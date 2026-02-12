@@ -16,7 +16,10 @@
     "test:e2e": "npx playwright test --config=e2e/playwright.config.ts",
     "test:cucumber": "npx cucumber-js",
     "test:api": "cd src/api && npm test",
-    "test:all": "npm run test:api && npm run test:cucumber && npm run test:e2e"
+    "test:all": "npm run test:api && npm run test:cucumber && npm run test:e2e",
+    "docs:generate": "npx ts-node scripts/generate-docs.ts",
+    "docs:serve": "npx mkdocs serve",
+    "docs:build": "npx mkdocs build"
   },
   "keywords": [],
   "author": "",
@@ -24,6 +27,8 @@
   "type": "commonjs",
   "devDependencies": {
     "@cucumber/cucumber": "^12.6.0",
+    "@cucumber/gherkin": "^29.0.0",
+    "@cucumber/messages": "^26.0.0",
     "@playwright/test": "^1.58.2",
     "concurrently": "^9.1.0",
     "ts-node": "^10.9.2"
