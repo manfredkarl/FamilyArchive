@@ -1,0 +1,49 @@
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+export const metadata: Metadata = {
+  title: "spec2cloud App",
+  description: "spec2cloud shell template — define your PRD and deploy",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: `
+          // Remove Next.js route announcer custom element to prevent aria-live conflicts
+          (function() {
+            function fix() {
+              var els = document.getElementsByTagName('next-route-announcer');
+              for (var i = els.length - 1; i >= 0; i--) els[i].remove();
+            }
+            setInterval(fix, 100);
+            if (typeof MutationObserver !== 'undefined') {
+              new MutationObserver(fix).observe(document.documentElement, { childList: true, subtree: true });
+            }
+          })();
+        `}} />
+      </head>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        {children}
+      </body>
+    </html>
+  );
+}

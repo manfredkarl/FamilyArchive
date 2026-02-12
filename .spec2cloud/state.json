@@ -1,0 +1,12 @@
+{
+  "currentPhase": 0,
+  "phaseState": {},
+  "humanGates": {
+    "phase0": false,
+    "phase1": false,
+    "phase2": false,
+    "phase4": false,
+    "phase5": false
+  },
+  "lastUpdated": ""
+}
