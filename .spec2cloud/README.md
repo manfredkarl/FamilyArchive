@@ -41,15 +41,27 @@ Each iteration of the orchestrator loop follows this cycle:
 
 State is written **after every action**, not just at the end of a phase. This means an interruption at any point loses at most one action.
 
+### Phase-boundary commits
+
+At the exit of each phase, a formal commit bundles all phase artifacts:
+
+```
+git add -A && git commit -m "[phase-N] {phase name} complete"
+```
+
+This creates clean checkpoints visible in `git log --oneline --grep="\[phase-"`. See AGENTS.md §4 (Phase Commit Protocol) for details. During implementation, additional mid-feature commits (`[impl] {feature-id} — all tests green`) create resumable checkpoints.
+
 ### Resume: read → re-validate → continue
 
 When a new session starts (or the same session reconnects), the orchestrator:
 
 1. Reads `state.json` and picks up at `currentPhase`.
 2. Inspects `phaseState` to determine exactly where within the phase to resume.
-3. Continues the loop from that point.
+3. For implementation phase: reads `features[]` to find the `"in-progress"` feature, its `failingTests`, `modifiedFiles`, and `iteration` count.
+4. Re-validates by running the relevant test suite and comparing to `lastTestRun`.
+5. Continues the loop from the determined position.
 
-For example, if `currentPhase` is `implementation` and `currentFeature` is `FRD-002` with `currentIteration` at `4`, the orchestrator resumes the TDD loop for FRD-002 at iteration 5.
+For example, if `currentPhase` is `4` (implementation) and `features[]` has a feature with `"status": "in-progress"`, `"iteration": 4`, and `failingTests` listing two failures, the agent resumes the TDD loop for that feature at iteration 5, targeting those specific failures.
 
 ### Human gates
 
@@ -79,8 +91,8 @@ The orchestrator will create a fresh `state.json` on the next run.
 To re-enter a specific phase, edit `state.json` manually:
 
 ```bash
-# Re-run implementation from the beginning
-jq '.currentPhase = "implementation" | .phaseState.implementation.completedFeatures = [] | .phaseState.implementation.currentFeature = null | .phaseState.implementation.currentIteration = 0' \
+# Re-run implementation from the beginning — reset all features to pending
+jq '.currentPhase = 4 | .phaseState.features = [.phaseState.features[] | .status = "pending" | .failingTests = [] | .modifiedFiles = [] | .lastTestRun = null | .iteration = 0] | .phaseState.currentFeature = null' \
   .spec2cloud/state.json > tmp.json && mv tmp.json .spec2cloud/state.json
 ```
 

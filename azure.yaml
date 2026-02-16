@@ -5,11 +5,6 @@ infra:
   provider: bicep
   path: ./infra
 
-requiredVersions:
-  extensions:
-    # the azd ai agent extension is required for this template
-    "azure.ai.agents": ">=0.1.0-preview"
-
 services:
   api:
     project: ./src/api
@@ -37,13 +32,4 @@ hooks:
     windows:
       shell: pwsh
       run: ./infra/scripts/predeploy.ps1
-      continueOnError: false
-  postprovision:
-    posix:
-      shell: sh
-      run: ./infra/scripts/postprovision.sh
-      continueOnError: false
-    windows:
-      shell: pwsh
-      run: ./infra/scripts/postprovision.ps1
       continueOnError: false

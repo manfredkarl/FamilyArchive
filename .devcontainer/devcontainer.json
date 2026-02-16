@@ -9,10 +9,13 @@
     "ghcr.io/devcontainers/features/copilot-cli:1": {},
     "ghcr.io/devcontainers/features/python": {
       "version": "latest"
+    },
+    "ghcr.io/devcontainers/features/docker-in-docker": {
+      "moby": false
     }
   },
 
   "postStartCommand": "copilot plugin marketplace add microsoft/github-copilot-for-azure && copilot plugin install azure@github-copilot-for-azure",
 
-  "postCreateCommand": "npm install && cd src/web && npm install && cd ../.. && cd src/api && npm install"
+  "postCreateCommand": "bash .devcontainer/post-create.sh"
 }

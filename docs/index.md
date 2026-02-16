@@ -4,25 +4,11 @@ This documentation is auto-generated from Gherkin feature specifications
 and Playwright test screenshots. Each page shows a feature as a visual
 step-by-step walkthrough — the living specification of how the application works.
 
-## Getting Started
-
-Run the test suite to generate screenshots, then build the docs:
-
-```bash
-# Run tests (captures screenshots automatically)
-npm run test:cucumber
-npm run test:e2e
-
-# Generate documentation from features + screenshots
-npm run docs:generate
-
-# Preview the documentation site
-npm run docs:serve
-```
-
 ## Features
 
-*No features generated yet. Run `npm run docs:generate` after creating Gherkin feature files.*
+- [**Authentication**](features/authentication.md) — 20 scenarios @auth
+- [**Profile page, navigation bar, and landing page**](features/profile-page-navigation-bar-and-landing-page.md) — 17 scenarios @profile
+- [**Role-Based Access Control (RBAC)**](features/role-based-access-control-rbac.md) — 12 scenarios @rbac @admin @roles @authorization
 
 ---
 

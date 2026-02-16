@@ -48,6 +48,8 @@ You operate across 6 phases. Each phase has a clear goal, exit condition, and hu
 
 **Exit condition:** All required files exist (`AGENTS.md`, `.github/copilot-instructions.md`, `specs/`, e2e scaffolding, `azure.yaml`). The GitHub Copilot for Azure plugin is installed.
 
+**Phase commit:** After human approval, commit per §4: `[phase-0] Shell setup complete`.
+
 **Human gate:** Yes. Present the repo structure summary and ask the human to approve before proceeding.
 
 ---
@@ -65,6 +67,8 @@ You operate across 6 phases. Each phase has a clear goal, exit condition, and hu
 4. Review each FRD through the same lenses — iterate with human
 
 **Exit condition:** Human approves all FRDs.
+
+**Phase commit:** After human approval, commit per §4: `[phase-1] Spec refinement complete — N FRDs approved`.
 
 **Human gate:** Yes. Present summary of all FRDs with key decisions and ask for approval.
 
@@ -84,6 +88,8 @@ You operate across 6 phases. Each phase has a clear goal, exit condition, and hu
 3. Iterate until no gaps remain
 
 **Exit condition:** All FRDs have corresponding Gherkin scenarios. Human approves.
+
+**Phase commit:** After human approval, commit per §4: `[phase-2] Gherkin generation complete — N feature files`.
 
 **Human gate:** Yes. Present scenario summary per FRD and ask for approval.
 
@@ -107,6 +113,8 @@ You operate across 6 phases. Each phase has a clear goal, exit condition, and hu
 
 **Exit condition:** All tests compile and all tests fail. No human gate — this is a mechanical step.
 
+**Phase commit:** Commit automatically (no human gate): `[phase-3] Test generation complete — red baseline verified`. This commit also populates `state.json` with the full `features[]` array including test file paths, dependency order, and initial `failingTests` — providing all context the implementation phase needs to run in any session.
+
 **Human gate:** No. Proceed automatically once tests compile and fail.
 
 **Delegate to:** `.github/agents/test-generation.agent.md`
@@ -119,14 +127,18 @@ You operate across 6 phases. Each phase has a clear goal, exit condition, and hu
 
 **Goal:** All tests pass — unit, Gherkin step definitions, Playwright e2e.
 
-**Entry condition:** Phase 3 complete. Red baseline established.
+**Entry condition:** Phase 3 complete. Red baseline established. `state.json` contains the full `features[]` array with test file paths, dependency order, and failing test details — enough context for any session to drive the implementation loop.
 
 **Tasks (per feature, using nested loops):**
 1. **Inner loop:** Read all test files (step definitions, e2e specs, unit tests) → extract contracts → write/modify code → run unit tests → fix until green
 2. **Middle loop:** Start local dev server → run Playwright e2e → fix until green
 3. **Outer loop:** Run full test suite (all unit + Gherkin + Playwright) → fix any regressions
 
+**Resumability:** This phase is fully resumable from `state.json`. On session start, the agent reads `features[]` to determine which features are `"done"`, which is `"in-progress"` (with `failingTests` and `modifiedFiles` for context), and which are `"pending"`. It resumes the TDD loop for the current feature at the recorded iteration. Mid-feature commits (per §4) ensure progress is never lost.
+
 **Exit condition:** Full test suite is green. Documentation generated via `npm run docs:generate`.
+
+**Phase commit:** After human approval, commit per §4: `[phase-4] Implementation complete — all tests green`. Mid-phase commits per feature: `[impl] {feature-id} — all tests green`.
 
 **Human gate:** Yes. Create a PR and ask human to review before deployment. Include the generated documentation site link.
 
@@ -148,6 +160,8 @@ You operate across 6 phases. Each phase has a clear goal, exit condition, and hu
 3. Run smoke tests against the deployed app — if they fail, diagnose, fix, redeploy
 
 **Exit condition:** Smoke tests pass against the live deployment.
+
+**Phase commit:** After human approval, commit per §4: `[phase-5] Deployment complete — smoke tests pass`.
 
 **Human gate:** Yes. Present deployment URL and smoke test results. Ask human to confirm.
 
@@ -180,12 +194,83 @@ At the **end of every loop iteration**:
 {
   "currentPhase": "implementation",
   "phaseState": {
-    "completedFeatures": ["user-auth", "dashboard"],
+    "features": [
+      {
+        "id": "user-auth",
+        "frd": "specs/frd-auth.md",
+        "status": "done",
+        "dependsOn": [],
+        "testFiles": {
+          "unit": ["src/api/tests/unit/auth.test.ts"],
+          "cucumber": ["tests/features/step-definitions/auth.steps.ts"],
+          "playwright": ["e2e/auth.spec.ts"]
+        },
+        "modifiedFiles": [
+          "src/api/src/routes/auth.ts",
+          "src/api/src/services/auth-service.ts",
+          "src/web/src/app/login/page.tsx"
+        ],
+        "failingTests": [],
+        "lastTestRun": {
+          "unit": { "pass": 12, "fail": 0 },
+          "cucumber": { "pass": 6, "fail": 0 },
+          "playwright": { "pass": 3, "fail": 0 }
+        },
+        "iteration": 3
+      },
+      {
+        "id": "notifications",
+        "frd": "specs/frd-notifications.md",
+        "status": "in-progress",
+        "dependsOn": ["user-auth"],
+        "testFiles": {
+          "unit": ["src/api/tests/unit/notifications.test.ts"],
+          "cucumber": ["tests/features/step-definitions/notifications.steps.ts"],
+          "playwright": ["e2e/notifications.spec.ts"]
+        },
+        "modifiedFiles": [
+          "src/api/src/routes/notifications.ts"
+        ],
+        "failingTests": [
+          {
+            "name": "should mark notification as read",
+            "file": "src/api/tests/unit/notifications.test.ts",
+            "error": "Expected status 200, received 404"
+          },
+          {
+            "name": "user sees unread badge",
+            "file": "e2e/notifications.spec.ts",
+            "error": "Locator [data-testid=\"unread-badge\"] not found"
+          }
+        ],
+        "lastTestRun": {
+          "unit": { "pass": 5, "fail": 2 },
+          "cucumber": { "pass": 2, "fail": 1 },
+          "playwright": { "pass": 1, "fail": 2 }
+        },
+        "iteration": 2
+      },
+      {
+        "id": "dashboard",
+        "frd": "specs/frd-dashboard.md",
+        "status": "pending",
+        "dependsOn": ["user-auth", "notifications"],
+        "testFiles": {
+          "unit": ["src/api/tests/unit/dashboard.test.ts"],
+          "cucumber": ["tests/features/step-definitions/dashboard.steps.ts"],
+          "playwright": ["e2e/dashboard.spec.ts"]
+        },
+        "modifiedFiles": [],
+        "failingTests": [],
+        "lastTestRun": null,
+        "iteration": 0
+      }
+    ],
     "currentFeature": "notifications",
     "testsStatus": {
-      "unit": { "pass": 42, "fail": 3 },
-      "gherkin": { "pass": 18, "fail": 1 },
-      "playwright": { "pass": 12, "fail": 2 }
+      "unit": { "pass": 17, "fail": 2 },
+      "cucumber": { "pass": 8, "fail": 1 },
+      "playwright": { "pass": 4, "fail": 2 }
     }
   },
   "humanGates": {
@@ -200,6 +285,20 @@ At the **end of every loop iteration**:
 }
 ```
 
+#### Feature Object Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Feature identifier (matches FRD name). |
+| `frd` | string | Path to the FRD spec file. |
+| `status` | `"pending"` \| `"in-progress"` \| `"done"` | Implementation status. |
+| `dependsOn` | string[] | Feature IDs that must be `"done"` before this feature starts. |
+| `testFiles` | object | Paths to test files per layer (unit, cucumber, playwright). |
+| `modifiedFiles` | string[] | Source files created or modified for this feature. |
+| `failingTests` | array | Currently failing tests: `{ name, file, error }`. Empty when all pass. |
+| `lastTestRun` | object \| null | Pass/fail counts per layer from the most recent test run. `null` if never run. |
+| `iteration` | number | TDD loop iteration count for this feature. |
+
 ### On Resume
 
 1. Read `.spec2cloud/state.json`
@@ -209,7 +308,54 @@ At the **end of every loop iteration**:
 
 ---
 
-## 4. Audit Log Protocol
+## 4. Phase Commit Protocol
+
+At the **exit of every phase**, create a single commit that bundles all artifacts produced during that phase. This gives a clean checkpoint per phase in `git log`.
+
+### Commit Procedure
+
+After a phase's exit condition is met (and human gate approved, where applicable):
+
+```
+1. Stage all changes:
+     git add -A
+2. Commit with a phase-tagged message:
+     git commit -m "[phase-N] {phase name} complete"
+3. Update state.json to reflect the new currentPhase.
+4. Append a phase-transition entry to audit.log.
+5. Commit the state update:
+     git add .spec2cloud/ && git commit -m "spec2cloud: transition to phase {N+1}"
+```
+
+### Phase Commit Messages
+
+| Phase | Commit Message |
+|-------|---------------|
+| Phase 0 | `[phase-0] Shell setup complete` |
+| Phase 1 | `[phase-1] Spec refinement complete — N FRDs approved` |
+| Phase 2 | `[phase-2] Gherkin generation complete — N feature files` |
+| Phase 3 | `[phase-3] Test generation complete — red baseline verified` |
+| Phase 4 | `[phase-4] Implementation complete — all tests green` |
+| Phase 5 | `[phase-5] Deployment complete — smoke tests pass` |
+
+### Why Two Commits
+
+The phase artifacts commit and the state transition commit are separate so that:
+- `git log --oneline --grep="\[phase-"` shows a clean timeline of phase completions
+- The state commit is mechanical and always follows the same pattern
+- If you need to reset a phase, you can revert the state commit without losing artifacts
+
+### Mid-Phase Commits (Implementation Only)
+
+During Phase 4, the implementation agent also commits after each **feature** completes its TDD loop:
+```
+git add -A && git commit -m "[impl] {feature-id} — all tests green"
+```
+These mid-phase commits create resumable checkpoints. If a session dies, the next session reads `state.json` and resumes from the last committed feature.
+
+---
+
+## 5. Audit Log Protocol
 
 Append every significant action to `.spec2cloud/audit.log`. Never overwrite — always append.
 
@@ -244,7 +390,7 @@ Append every significant action to `.spec2cloud/audit.log`. Never overwrite — 
 
 ---
 
-## 5. Human Gate Protocol
+## 6. Human Gate Protocol
 
 Human gates exist at the exit of Phases 0, 1, 2, 4, and 5. Phase 3 has no human gate.
 
@@ -284,7 +430,7 @@ When the human rejects or provides feedback:
 
 ---
 
-## 6. Delegation Protocol
+## 7. Delegation Protocol
 
 You delegate work to sub-agents defined in `.github/agents/*.agent.md`. You remain the single orchestrator — sub-agents execute tasks and return results to you.
 
@@ -324,7 +470,7 @@ Use `/fleet` when tasks are independent and can run simultaneously:
 
 ---
 
-## 7. Resume Protocol
+## 8. Resume Protocol
 
 On every CLI session start, check for existing state.
 
@@ -356,7 +502,7 @@ On every CLI session start, check for existing state.
 
 ---
 
-## 8. Error Handling
+## 9. Error Handling
 
 ### Sub-Agent Failure
 
@@ -396,7 +542,7 @@ If tests fail to compile or the test runner itself fails (not test assertion fai
 
 ---
 
-## 9. Skill Management Protocol
+## 10. Skill Management Protocol
 
 Skills are reusable agent procedures stored in `.github/skills/`. They encode repeatable tasks so agents execute them consistently.
 
@@ -455,7 +601,7 @@ Shells ship with pre-defined skills. Common built-in skills:
 
 ---
 
-## 10. Stack Reference
+## 11. Stack Reference
 
 **Stack:** Next.js (TypeScript, App Router) + Express.js (TypeScript, Node.js)
 

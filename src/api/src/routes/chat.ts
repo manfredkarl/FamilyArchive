@@ -1,6 +1,4 @@
 import { type Express, type Request, type Response } from 'express';
-import type { SessionService } from '../services/session-service.js';
-import type { ConversationHandler } from '../services/conversation-handler.js';
 
 // Placeholder implementation — replaced during spec2cloud Phase 4
 export function mapChatEndpoints(app: Express): void {

@@ -43,6 +43,35 @@ Before entering any loop, verify that **every test runner is installed and opera
 
 **This step is non-negotiable.** If you skip it and a test runner fails later, you will not know whether your code is wrong or the runner is broken. Establishing that all runners execute (and fail with test assertion errors, not infrastructure errors) is your foundation.
 
+## 2c. Resume from State (on session start)
+
+This phase is **fully resumable**. A fresh session needs only `.spec2cloud/state.json` to drive the implementation loop. On entry (whether first run or resume), execute this protocol:
+
+```
+1.  Read .spec2cloud/state.json → parse phaseState.features[].
+2.  Determine position:
+      a. Features with status "done" → skip.
+      b. Feature with status "in-progress" → this is your current feature.
+         Read its failingTests[] for the last known failures.
+         Read its modifiedFiles[] to understand what code exists.
+         Read its iteration count to know how many attempts have been made.
+         Read its testFiles to know exactly which test files to run.
+      c. Features with status "pending" → queued, ordered by dependsOn.
+3.  Re-validate by running the test suite for the current feature:
+      a. Run unit tests for the feature's testFiles.unit paths.
+      b. Run Cucumber for the feature's testFiles.cucumber paths.
+      c. Compare actual results to lastTestRun in state.
+4.  If results match state → continue the TDD loop from iteration N+1.
+5.  If results differ (e.g., human edited code while paused):
+      a. Update state.json to reflect actual test results.
+      b. Update failingTests[] with current failures.
+      c. Continue from the new ground truth.
+6.  Run test infrastructure setup (§2b) if this is a fresh session
+    (e.g., Playwright browsers may not be installed).
+```
+
+**Key principle:** The `features[]` array in `state.json` contains everything needed — test file paths, dependency order, failing tests with error messages, modified files. No prior session memory is required.
+
 ## 3. Inner Loop: Code + Unit Tests + Step Definitions
 
 This is your tightest feedback loop. Execute it for each feature, one test at a time.
@@ -177,15 +206,26 @@ If a human edits code while you are in the implementation phase:
 After each feature completes (inner loop + middle loop both green):
 
 1. Update `.spec2cloud/state.json`:
-   - Add the feature name to the `completedFeatures` array.
-   - Update `testsStatus` with pass/fail counts for unit, Gherkin, and e2e tests.
-   - Set `currentFeature` to the next feature in the ordered list, or `null` if all are done.
+   - Set the feature's `status` to `"done"` in the `features[]` array.
+   - Clear the feature's `failingTests` to `[]`.
+   - Update the feature's `lastTestRun` with final pass/fail counts.
+   - Update the feature's `modifiedFiles` with all source files created or changed.
+   - Set `currentFeature` to the next feature (by dependency order), or `null` if all are done.
+   - Update the top-level `testsStatus` with aggregate pass/fail counts across all features.
 2. Append an entry to `.spec2cloud/audit.log` with:
    - Timestamp
    - Feature name
    - Action: `feature-implemented`
    - Test summary (pass/fail/skip counts)
-3. Commit the state files: `git add .spec2cloud/ && git commit -m "state: mark {feature} as implemented"`.
+3. Commit all changes including state: `git add -A && git commit -m "[impl] {feature-id} — all tests green"`.
+
+After each **iteration** within a feature (whether tests pass or fail):
+
+1. Update the feature's `failingTests[]` with current failures: `{ name, file, error }`.
+2. Update the feature's `lastTestRun` with current pass/fail counts.
+3. Update the feature's `modifiedFiles[]` with any new files created or changed.
+4. Increment the feature's `iteration` count.
+5. Write `state.json` to disk (but do NOT commit mid-iteration — only commit on feature completion).
 
 ## 9. What NOT to Do
 

@@ -1,35 +1,47 @@
 'use client';
 
-import MessageList from './components/MessageList';
-import ChatInput from './components/ChatInput';
-import { useChat } from './hooks/useChat';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
 
 export default function Home() {
-  const { messages, isLoading, sendMessage, clearConversation } = useChat();
+  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((res) => setAuthenticated(res.ok))
+      .catch(() => setAuthenticated(false));
+  }, []);
 
   return (
-    <div className="flex h-screen flex-col bg-white">
-      {/* Header */}
-      <header className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-        <h1 className="text-lg font-semibold text-gray-900">
-          spec2cloud App
-        </h1>
-        <button
-          type="button"
-          onClick={clearConversation}
-          aria-label="New Conversation"
-          tabIndex={3}
-          className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+    <main className="flex min-h-[80vh] flex-col items-center justify-center px-4 text-center">
+      <h1 className="mb-4 text-4xl font-bold text-gray-900">UserAuth</h1>
+      <p className="mb-8 max-w-md text-lg text-gray-600">
+        A simple authentication demo application.
+      </p>
+      {authenticated === true && (
+        <Link
+          href="/profile"
+          className="rounded bg-blue-600 px-6 py-2.5 font-medium text-white hover:bg-blue-700"
         >
-          New Conversation
-        </button>
-      </header>
-
-      {/* Messages */}
-      <MessageList messages={messages} isLoading={isLoading} />
-
-      {/* Input */}
-      <ChatInput onSend={sendMessage} disabled={isLoading} />
-    </div>
+          Go to Profile
+        </Link>
+      )}
+      {authenticated === false && (
+        <div className="flex gap-4">
+          <Link
+            href="/login"
+            className="rounded bg-blue-600 px-6 py-2.5 font-medium text-white hover:bg-blue-700"
+          >
+            Login
+          </Link>
+          <Link
+            href="/register"
+            className="rounded border border-blue-600 px-6 py-2.5 font-medium text-blue-600 hover:bg-blue-50"
+          >
+            Register
+          </Link>
+        </div>
+      )}
+    </main>
   );
 }

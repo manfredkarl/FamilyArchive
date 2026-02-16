@@ -14,6 +14,25 @@ export class CustomWorld extends World {
   scenarioName = '';
   stepIndex = 0;
 
+  response: { status: number; body: any; headers: Headers } | null = null;
+  cookies: string[] = [];
+  apiBaseUrl = 'http://localhost:5001';
+  webBaseUrl = 'http://localhost:3000';
+  storedPasswords: Record<string, string> = {};
+  tamperedJwt: string | null = null;
+
+  async apiRequest(method: string, path: string, body?: object): Promise<void> {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (this.cookies.length) headers['Cookie'] = this.cookies.join('; ');
+    const options: RequestInit = { method, headers };
+    if (body) options.body = JSON.stringify(body);
+    const res = await fetch(`${this.apiBaseUrl}${path}`, options);
+    const setCookies = res.headers.getSetCookie?.() || [];
+    if (setCookies.length) this.cookies = setCookies;
+    const responseBody = await res.json().catch(() => null);
+    this.response = { status: res.status, body: responseBody, headers: res.headers };
+  }
+
   async openBrowser() {
     this.browser = await chromium.launch();
     this.context = await this.browser.newContext({
