@@ -57,11 +57,11 @@ When a new session starts (or the same session reconnects), the orchestrator:
 
 1. Reads `state.json` and picks up at `currentPhase`.
 2. Inspects `phaseState` to determine exactly where within the phase to resume.
-3. For implementation phase: reads `features[]` to find the `"in-progress"` feature, its `failingTests`, `modifiedFiles`, and `iteration` count.
+3. For implementation phase: reads `features[]` to find the `"in-progress"` feature, determines which slice is active (`contract`, `api`, `web`, or `integration`), and reads that slice's `failingTests`, `modifiedFiles`, and `iteration` count.
 4. Re-validates by running the relevant test suite and comparing to `lastTestRun`.
 5. Continues the loop from the determined position.
 
-For example, if `currentPhase` is `4` (implementation) and `features[]` has a feature with `"status": "in-progress"`, `"iteration": 4`, and `failingTests` listing two failures, the agent resumes the TDD loop for that feature at iteration 5, targeting those specific failures.
+For example, if `currentPhase` is `4` (implementation) and a feature has `slices.api.status: "in-progress"` with `slices.api.iteration: 4` and `failingTests` listing two failures, the agent resumes the API slice at iteration 5, targeting those specific failures.
 
 ### Human gates
 

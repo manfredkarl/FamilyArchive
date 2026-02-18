@@ -58,11 +58,11 @@ spec2cloud uses an AI orchestrator (defined in `AGENTS.md`) that drives your pro
 | Phase | Name | Agent | Human Gate | What Happens |
 |-------|------|-------|------------|-------------|
 | 0 | Shell Setup | Orchestrator | ✅ | Verify shell structure, scaffold directories |
-| 1 | Spec Refinement | `agents/spec-refinement.md` | ✅ | Review PRD for completeness, break into FRDs |
-| 2 | Gherkin Generation | `agents/gherkin-generation.md` | ✅ | Convert each FRD into Gherkin feature files |
-| 3 | Test Scaffolding | `agents/test-generation.md` | ❌ | Generate test code from Gherkin (red baseline) |
-| 4 | Implementation | `agents/implementation.md` | ✅ | Write code to make all tests pass (TDD) |
-| 5 | Deployment | `agents/deploy.md` | ✅ | Provision Azure resources, deploy, smoke test |
+| 1 | Spec Refinement | `agents/spec-refinement.agent.md` | ✅ | Review PRD for completeness, break into FRDs |
+| 2 | Gherkin Generation | `agents/gherkin-generation.agent.md` | ✅ | Convert each FRD into Gherkin feature files |
+| 3 | Test Scaffolding | `agents/test-generation.agent.md` | ❌ | Generate test code from Gherkin (red baseline) |
+| 4 | Implementation | `agents/implementation.agent.md` | ✅ | Contract-first parallel slices make tests pass |
+| 5 | Deployment | `agents/deploy.agent.md` | ✅ | Provision Azure resources, deploy, smoke test |
 
 ### Using the Workflow
 
@@ -83,12 +83,13 @@ Progress is tracked in `.spec2cloud/state.json` and `.spec2cloud/audit.log`. The
 │   ├── spec-refinement.md       # Phase 1: PRD/FRD review
 │   ├── gherkin-generation.md    # Phase 2: FRD → Gherkin
 │   ├── test-generation.md       # Phase 3: Gherkin → tests
-│   ├── implementation.md        # Phase 4: TDD implementation
+│   ├── implementation.md        # Phase 4: Contract-first parallel slices
 │   └── deploy.md                # Phase 5: Azure deployment
 ├── specs/                       # Your product specifications
 │   ├── prd.md                   # Product Requirements Document (start here!)
 │   └── features/                # Generated Gherkin .feature files
 ├── src/
+│   ├── shared/types/            # Contract types (generated in Phase 4)
 │   ├── api/                     # Express.js API (TypeScript)
 │   │   ├── src/index.ts         # API entry point
 │   │   ├── src/routes/          # API route handlers
@@ -103,7 +104,7 @@ Progress is tracked in `.spec2cloud/state.json` and `.spec2cloud/audit.log`. The
 ├── infra/                       # Azure infrastructure (Bicep)
 ├── azure.yaml                   # Azure Developer CLI config
 ├── .spec2cloud/                 # Orchestration state
-│   ├── state.json               # Current phase & progress
+│   ├── state.json               # Current phase & progress (per-slice tracking)
 │   └── audit.log                # Action history
 └── .github/                     # CI/CD workflows
 ```
@@ -122,14 +123,22 @@ Progress is tracked in `.spec2cloud/state.json` and `.spec2cloud/audit.log`. The
 
 ## Testing Strategy
 
-spec2cloud generates a 4-layer test pyramid:
+spec2cloud generates a 4-layer test pyramid, partitioned across implementation slices:
 
-1. **Vitest** (TypeScript unit tests) — individual service/handler methods
-2. **Cucumber.js** (`tests/features/`) — BDD scenarios from Gherkin specs
-3. **Playwright** (`e2e/`) — full user journey end-to-end tests
-4. **Supertest** (API integration tests) — backend API integration tests
+1. **Vitest** (TypeScript unit tests) — API slice: individual service/handler methods
+2. **Cucumber.js** (`tests/features/`) — Integration slice: BDD scenarios from Gherkin specs
+3. **Playwright** (`e2e/`) — Integration slice: full user journey end-to-end tests
+4. **Supertest** (API integration tests) — API slice: backend API integration tests
 
-Tests are generated in Phase 3 as a **red baseline** (they compile but fail). Phase 4 implements code to make them pass.
+Tests are generated in Phase 3 as a **red baseline** (they compile but fail). Phase 4 implements code across parallel slices to make them pass:
+
+```
+Per feature:
+  [Contract Gen] ──┬──> [API Slice: Vitest/Supertest]  ──┬──> [Integration Slice: Cucumber/Playwright]
+                   └──> [Web Slice: Build/Components]   ──┘
+```
+
+API and Web slices run in parallel against shared TypeScript contract types. The integration slice wires them together and runs Cucumber + Playwright.
 
 ## Deploy to Azure
 

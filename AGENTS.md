@@ -129,22 +129,44 @@ You operate across 6 phases. Each phase has a clear goal, exit condition, and hu
 
 **Entry condition:** Phase 3 complete. Red baseline established. `state.json` contains the full `features[]` array with test file paths, dependency order, and failing test details — enough context for any session to drive the implementation loop.
 
-**Tasks (per feature, using nested loops):**
-1. **Inner loop:** Read all test files (step definitions, e2e specs, unit tests) → extract contracts → write/modify code → run unit tests → fix until green
-2. **Middle loop:** Start local dev server → run Playwright e2e → fix until green
-3. **Outer loop:** Run full test suite (all unit + Gherkin + Playwright) → fix any regressions
+**Architecture: Contract-First Parallel Slices**
 
-**Resumability:** This phase is fully resumable from `state.json`. On session start, the agent reads `features[]` to determine which features are `"done"`, which is `"in-progress"` (with `failingTests` and `modifiedFiles` for context), and which are `"pending"`. It resumes the TDD loop for the current feature at the recorded iteration. Mid-feature commits (per §4) ensure progress is never lost.
+Each feature is implemented as three slices that maximize parallelism:
+
+```
+Per feature:
+  [Contract Gen] ──┬──> [API Slice]  ──┬──> [Integration Slice]
+                   └──> [Web Slice]  ──┘
+
+Across features (when independent):
+  Feature A: [Contract] → [API ∥ Web] → [Integration]
+  Feature B: [Contract] → [API ∥ Web] → [Integration]   ← parallel with A if no dependency
+```
+
+**Tasks (per feature, using slices):**
+1. **Contract generation:** Extract TypeScript interfaces from Gherkin scenarios + test files — endpoint signatures, request/response shapes, component props. These types are the stable bridge between API and Web slices.
+2. **API slice:** Implement backend routes, services, and models. Run unit tests (Vitest + Supertest) and Cucumber step definitions until green. No browser or frontend needed.
+3. **Web slice:** Implement frontend pages, components, and client logic. Run component/build tests until green. Can mock API calls using the contract types. No running API server needed.
+4. **Integration slice:** Wire API + Web together. Start dev servers, run Playwright e2e tests for this feature until green. This slice is sequential — it waits for both API and Web slices to complete.
+5. **Regression check:** After all features complete their integration slices, run the full test suite (all unit + Gherkin + Playwright) to catch cross-feature conflicts.
+
+**Slice-level parallelism rules:**
+- API slice and Web slice for the **same feature** MAY run in parallel — they share no source files, only the contract types.
+- API slices across **independent features** MAY run in parallel.
+- Integration slices are always sequential per feature (require both API + Web slices done).
+- The regression check runs once after all features are integrated.
+
+**Resumability:** This phase is fully resumable from `state.json`. On session start, the agent reads `features[]` and each feature's `slices` object to determine which slices are `"done"`, `"in-progress"`, or `"pending"`. It resumes at the current slice for the current feature. Mid-slice commits ensure progress is never lost.
 
 **Exit condition:** Full test suite is green. Documentation generated via `npm run docs:generate`.
 
-**Phase commit:** After human approval, commit per §4: `[phase-4] Implementation complete — all tests green`. Mid-phase commits per feature: `[impl] {feature-id} — all tests green`.
+**Phase commit:** After human approval, commit per §4: `[phase-4] Implementation complete — all tests green`. Mid-phase commits per slice: `[impl] {feature-id}/{slice} — slice green`.
 
 **Human gate:** Yes. Create a PR and ask human to review before deployment. Include the generated documentation site link.
 
 **Delegate to:** `.github/agents/implementation.agent.md`
 
-**Parallelism:** Use `/fleet` to implement independent features in parallel (only if features have no shared dependencies). Always single-threaded within a feature.
+**Parallelism:** Two levels — (1) use `/fleet` to implement independent features in parallel, and (2) within each feature, API and Web slices run in parallel against the shared contract. Integration slices are always sequential.
 
 ---
 
@@ -200,22 +222,39 @@ At the **end of every loop iteration**:
         "frd": "specs/frd-auth.md",
         "status": "done",
         "dependsOn": [],
-        "testFiles": {
-          "unit": ["src/api/tests/unit/auth.test.ts"],
-          "cucumber": ["tests/features/step-definitions/auth.steps.ts"],
-          "playwright": ["e2e/auth.spec.ts"]
+        "slices": {
+          "contract": {
+            "status": "done",
+            "outputFiles": ["src/shared/types/auth.ts"]
+          },
+          "api": {
+            "status": "done",
+            "testFiles": ["src/api/tests/unit/auth.test.ts"],
+            "modifiedFiles": ["src/api/src/routes/auth.ts", "src/api/src/services/auth-service.ts"],
+            "failingTests": [],
+            "lastTestRun": { "pass": 12, "fail": 0 },
+            "iteration": 2
+          },
+          "web": {
+            "status": "done",
+            "testFiles": ["src/web/tests/auth.test.ts"],
+            "modifiedFiles": ["src/web/src/app/login/page.tsx"],
+            "failingTests": [],
+            "lastTestRun": { "pass": 4, "fail": 0 },
+            "iteration": 1
+          },
+          "integration": {
+            "status": "done",
+            "testFiles": {
+              "cucumber": ["tests/features/step-definitions/auth.steps.ts"],
+              "playwright": ["e2e/auth.spec.ts"]
+            },
+            "failingTests": [],
+            "lastTestRun": { "cucumber": { "pass": 6, "fail": 0 }, "playwright": { "pass": 3, "fail": 0 } },
+            "iteration": 1
+          }
         },
-        "modifiedFiles": [
-          "src/api/src/routes/auth.ts",
-          "src/api/src/services/auth-service.ts",
-          "src/web/src/app/login/page.tsx"
-        ],
         "failingTests": [],
-        "lastTestRun": {
-          "unit": { "pass": 12, "fail": 0 },
-          "cucumber": { "pass": 6, "fail": 0 },
-          "playwright": { "pass": 3, "fail": 0 }
-        },
         "iteration": 3
       },
       {
@@ -223,31 +262,43 @@ At the **end of every loop iteration**:
         "frd": "specs/frd-notifications.md",
         "status": "in-progress",
         "dependsOn": ["user-auth"],
-        "testFiles": {
-          "unit": ["src/api/tests/unit/notifications.test.ts"],
-          "cucumber": ["tests/features/step-definitions/notifications.steps.ts"],
-          "playwright": ["e2e/notifications.spec.ts"]
-        },
-        "modifiedFiles": [
-          "src/api/src/routes/notifications.ts"
-        ],
-        "failingTests": [
-          {
-            "name": "should mark notification as read",
-            "file": "src/api/tests/unit/notifications.test.ts",
-            "error": "Expected status 200, received 404"
+        "slices": {
+          "contract": {
+            "status": "done",
+            "outputFiles": ["src/shared/types/notifications.ts"]
           },
-          {
-            "name": "user sees unread badge",
-            "file": "e2e/notifications.spec.ts",
-            "error": "Locator [data-testid=\"unread-badge\"] not found"
+          "api": {
+            "status": "in-progress",
+            "testFiles": ["src/api/tests/unit/notifications.test.ts"],
+            "modifiedFiles": ["src/api/src/routes/notifications.ts"],
+            "failingTests": [
+              { "name": "should mark notification as read", "file": "src/api/tests/unit/notifications.test.ts", "error": "Expected status 200, received 404" }
+            ],
+            "lastTestRun": { "pass": 5, "fail": 2 },
+            "iteration": 2
+          },
+          "web": {
+            "status": "pending",
+            "testFiles": ["src/web/tests/notifications.test.ts"],
+            "modifiedFiles": [],
+            "failingTests": [],
+            "lastTestRun": null,
+            "iteration": 0
+          },
+          "integration": {
+            "status": "pending",
+            "testFiles": {
+              "cucumber": ["tests/features/step-definitions/notifications.steps.ts"],
+              "playwright": ["e2e/notifications.spec.ts"]
+            },
+            "failingTests": [],
+            "lastTestRun": null,
+            "iteration": 0
           }
-        ],
-        "lastTestRun": {
-          "unit": { "pass": 5, "fail": 2 },
-          "cucumber": { "pass": 2, "fail": 1 },
-          "playwright": { "pass": 1, "fail": 2 }
         },
+        "failingTests": [
+          { "name": "should mark notification as read", "file": "src/api/tests/unit/notifications.test.ts", "error": "Expected status 200, received 404" }
+        ],
         "iteration": 2
       },
       {
@@ -255,14 +306,13 @@ At the **end of every loop iteration**:
         "frd": "specs/frd-dashboard.md",
         "status": "pending",
         "dependsOn": ["user-auth", "notifications"],
-        "testFiles": {
-          "unit": ["src/api/tests/unit/dashboard.test.ts"],
-          "cucumber": ["tests/features/step-definitions/dashboard.steps.ts"],
-          "playwright": ["e2e/dashboard.spec.ts"]
+        "slices": {
+          "contract": { "status": "pending", "outputFiles": [] },
+          "api": { "status": "pending", "testFiles": ["src/api/tests/unit/dashboard.test.ts"], "modifiedFiles": [], "failingTests": [], "lastTestRun": null, "iteration": 0 },
+          "web": { "status": "pending", "testFiles": ["src/web/tests/dashboard.test.ts"], "modifiedFiles": [], "failingTests": [], "lastTestRun": null, "iteration": 0 },
+          "integration": { "status": "pending", "testFiles": { "cucumber": ["tests/features/step-definitions/dashboard.steps.ts"], "playwright": ["e2e/dashboard.spec.ts"] }, "failingTests": [], "lastTestRun": null, "iteration": 0 }
         },
-        "modifiedFiles": [],
         "failingTests": [],
-        "lastTestRun": null,
         "iteration": 0
       }
     ],
@@ -291,13 +341,35 @@ At the **end of every loop iteration**:
 |-------|------|-------------|
 | `id` | string | Feature identifier (matches FRD name). |
 | `frd` | string | Path to the FRD spec file. |
-| `status` | `"pending"` \| `"in-progress"` \| `"done"` | Implementation status. |
+| `status` | `"pending"` \| `"in-progress"` \| `"done"` | Overall feature implementation status. `"done"` only when all slices are done. |
 | `dependsOn` | string[] | Feature IDs that must be `"done"` before this feature starts. |
-| `testFiles` | object | Paths to test files per layer (unit, cucumber, playwright). |
-| `modifiedFiles` | string[] | Source files created or modified for this feature. |
-| `failingTests` | array | Currently failing tests: `{ name, file, error }`. Empty when all pass. |
-| `lastTestRun` | object \| null | Pass/fail counts per layer from the most recent test run. `null` if never run. |
-| `iteration` | number | TDD loop iteration count for this feature. |
+| `slices` | object | Per-slice status tracking (see Slice Object Fields below). |
+| `failingTests` | array | Aggregate of all failing tests across slices: `{ name, file, error }`. Empty when all pass. |
+| `iteration` | number | Total TDD loop iteration count across all slices. |
+
+#### Slice Object Fields
+
+Each feature contains four slices: `contract`, `api`, `web`, `integration`.
+
+| Field | Type | Slices | Description |
+|-------|------|--------|-------------|
+| `status` | `"pending"` \| `"in-progress"` \| `"done"` | All | Slice implementation status. |
+| `outputFiles` | string[] | `contract` | Generated type/interface files. |
+| `testFiles` | string[] or object | `api`, `web`, `integration` | Test file paths. Integration uses `{ cucumber, playwright }` sub-object. |
+| `modifiedFiles` | string[] | `api`, `web` | Source files created or modified in this slice. |
+| `failingTests` | array | `api`, `web`, `integration` | Currently failing tests for this slice. |
+| `lastTestRun` | object \| null | `api`, `web`, `integration` | Pass/fail counts from the most recent test run. |
+| `iteration` | number | `api`, `web`, `integration` | TDD loop iteration count for this slice. |
+
+#### Slice Dependencies
+
+```
+contract → api  (api slice reads contract types)
+contract → web  (web slice reads contract types)
+api + web → integration  (integration requires both slices done)
+```
+
+`api` and `web` slices have no dependency on each other — they can execute in parallel.
 
 ### On Resume
 
@@ -347,11 +419,15 @@ The phase artifacts commit and the state transition commit are separate so that:
 
 ### Mid-Phase Commits (Implementation Only)
 
-During Phase 4, the implementation agent also commits after each **feature** completes its TDD loop:
+During Phase 4, the implementation agent commits after each **slice** completes:
+```
+git add -A && git commit -m "[impl] {feature-id}/{slice} — slice green"
+```
+And after all slices for a feature are integrated:
 ```
 git add -A && git commit -m "[impl] {feature-id} — all tests green"
 ```
-These mid-phase commits create resumable checkpoints. If a session dies, the next session reads `state.json` and resumes from the last committed feature.
+These mid-phase commits create resumable checkpoints at slice granularity. If a session dies, the next session reads `state.json` and resumes from the last committed slice.
 
 ---
 
@@ -453,18 +529,21 @@ Use `/fleet` when tasks are independent and can run simultaneously:
 |-------|---------------|-----------|
 | Phase 2 | Generate Gherkin for multiple FRDs | Each FRD is independent |
 | Phase 3 | Generate tests for multiple features | Each feature's tests are independent |
-| Phase 4 | Implement multiple features | Only if features have no shared dependencies |
+| Phase 4 (cross-feature) | Implement multiple features | Only if features have no shared dependencies |
+| Phase 4 (intra-feature) | API slice + Web slice for a single feature | Always — slices share only contract types, not source files |
 
 **Rules for parallel execution:**
-- Never parallelize within a single feature — always single-threaded per feature
-- Each parallel sub-agent gets its own feature scope — no shared file mutations
-- After all parallel tasks complete, you (the orchestrator) run the full test suite to verify no conflicts
+- API and Web slices within a feature MAY always run in parallel — they share contract types but not source files
+- Independent features MAY run in parallel — each feature's slices are scoped to their own files
+- Integration slices are sequential — they require both API and Web slices to be complete
+- After all features' integration slices complete, the orchestrator runs the full test suite to verify no conflicts
 - If conflicts are found, resolve them sequentially
 
 ### When NOT to Use `/fleet`
 
 - Phase 0: Sequential analysis and scaffolding
 - Phase 1: Interactive with human — sequential by nature
+- Phase 4 integration slices: Require both API + Web slices done — sequential by nature
 - Phase 5: Sequential deployment pipeline (provision → deploy → smoke)
 - Any time features share dependencies (shared models, shared APIs, shared UI components)
 

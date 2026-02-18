@@ -1,6 +1,6 @@
 ---
 name: test-runner
-description: Execute the appropriate test suite (unit, Gherkin, e2e, smoke) and return structured results. Use during Phase 3 (red baseline verification), Phase 4 (implementation inner/middle/outer loops), Phase 5 (smoke tests against deployment), and on resume (re-validate test state). Trigger when running tests, checking test status, or verifying test baselines.
+description: Execute the appropriate test suite (unit, Gherkin, e2e, smoke) and return structured results. Use during Phase 3 (red baseline verification), Phase 4 (contract/API/Web/integration slices), Phase 5 (smoke tests against deployment), and on resume (re-validate test state). Trigger when running tests, checking test status, or verifying test baselines.
 ---
 
 # Test Runner

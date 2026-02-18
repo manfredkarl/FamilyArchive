@@ -31,24 +31,27 @@ is driven by automated tests generated from those specifications.
 ## File Organization
 ```
 specs/          → Specifications (PRD, FRDs, Gherkin)
-e2e/            → Playwright end-to-end tests
-tests/          → Unit and integration tests
-src/            → Application source code
+e2e/            → Playwright end-to-end tests (integration slice)
+tests/          → Cucumber.js BDD tests (integration slice)
+src/shared/     → Contract types shared between API and Web
+src/api/        → Express.js backend (API slice)
+src/web/        → Next.js frontend (Web slice)
 infra/          → Azure infrastructure (Bicep)
 .spec2cloud/    → Framework state and config
 ```
 
 ## Git Conventions
-- Commit messages: `[phase] brief description` (e.g., `[impl] add user auth login endpoint`)
+- Commit messages: `[impl] {feature}/{slice} — slice green` (e.g., `[impl] user-auth/api — slice green`)
 - Branch naming: `spec2cloud/{phase}/{feature}` (e.g., `spec2cloud/impl/user-auth`)
 - Always commit `.spec2cloud/state.json` and `.spec2cloud/audit.log` with changes
 - Never commit secrets, .env files, or node_modules
 
 ## Testing Hierarchy
-1. **Unit tests** — fastest feedback, run on every change
-2. **Gherkin step definitions** — behavioral tests, run per feature
-3. **Playwright e2e** — full user journey tests, run after feature completion
-4. **Smoke tests** — post-deployment verification
+1. **Unit tests** — API slice: fastest feedback, run on every backend change
+2. **Component tests** — Web slice: build verification and component tests
+3. **Gherkin step definitions** — Integration slice: behavioral tests after API + Web slices
+4. **Playwright e2e** — Integration slice: full user journey tests
+5. **Smoke tests** — post-deployment verification
 
 ## Human Gates
 The agent MUST pause and ask for human approval at these points:
