@@ -31,6 +31,7 @@ is driven by automated tests generated from those specifications.
 ## File Organization
 ```
 specs/          → Specifications (PRD, FRDs, Gherkin)
+specs/contracts/→ Contracts (API specs per feature, infrastructure resources)
 e2e/            → Playwright end-to-end tests (integration slice)
 tests/          → Cucumber.js BDD tests (integration slice)
 src/shared/     → Contract types shared between API and Web
@@ -58,6 +59,7 @@ The agent MUST pause and ask for human approval at these points:
 - After PRD review (before FRD breakdown)
 - After FRD review (before Gherkin generation)
 - After Gherkin generation (before test generation)
+- After contract generation (before implementation) — API specs, shared types, and infra contracts
 - After implementation (before deployment) — via PR review
 - After deployment (if smoke tests fail)
 

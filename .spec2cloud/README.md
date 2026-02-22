@@ -57,11 +57,11 @@ When a new session starts (or the same session reconnects), the orchestrator:
 
 1. Reads `state.json` and picks up at `currentPhase`.
 2. Inspects `phaseState` to determine exactly where within the phase to resume.
-3. For implementation phase: reads `features[]` to find the `"in-progress"` feature, determines which slice is active (`contract`, `api`, `web`, or `integration`), and reads that slice's `failingTests`, `modifiedFiles`, and `iteration` count.
+3. For implementation phase: reads `features[]` to find the `"in-progress"` feature, determines which slice is active (`api`, `web`, or `integration`), and reads that slice's `failingTests`, `modifiedFiles`, and `iteration` count. Contract types from Phase 4 are already in place.
 4. Re-validates by running the relevant test suite and comparing to `lastTestRun`.
 5. Continues the loop from the determined position.
 
-For example, if `currentPhase` is `4` (implementation) and a feature has `slices.api.status: "in-progress"` with `slices.api.iteration: 4` and `failingTests` listing two failures, the agent resumes the API slice at iteration 5, targeting those specific failures.
+For example, if `currentPhase` is `5` (implementation) and a feature has `slices.api.status: "in-progress"` with `slices.api.iteration: 4` and `failingTests` listing two failures, the agent resumes the API slice at iteration 5, targeting those specific failures.
 
 ### Human gates
 
@@ -72,6 +72,7 @@ At certain transitions the orchestrator pauses and waits for human approval:
 | PRD approval | `humanGates.prdApproved` must be `true` to leave spec-refinement. |
 | FRD approval | `humanGates.frdApproved` must be `true` to start gherkin-generation. |
 | Gherkin approval | `humanGates.gherkinApproved` must be `true` to start test-generation. |
+| Contracts approval | `humanGates.contractsApproved` must be `true` to start implementation. |
 | Implementation approval | `humanGates.implementationApproved` must be `true` to start deployment. |
 | Deployment approval | `humanGates.deploymentApproved` must be `true` to run `azd deploy`. |
 
@@ -92,7 +93,7 @@ To re-enter a specific phase, edit `state.json` manually:
 
 ```bash
 # Re-run implementation from the beginning — reset all features to pending
-jq '.currentPhase = 4 | .phaseState.features = [.phaseState.features[] | .status = "pending" | .failingTests = [] | .modifiedFiles = [] | .lastTestRun = null | .iteration = 0] | .phaseState.currentFeature = null' \
+jq '.currentPhase = 5 | .phaseState.features = [.phaseState.features[] | .status = "pending" | .failingTests = [] | .modifiedFiles = [] | .lastTestRun = null | .iteration = 0] | .phaseState.currentFeature = null' \
   .spec2cloud/state.json > tmp.json && mv tmp.json .spec2cloud/state.json
 ```
 

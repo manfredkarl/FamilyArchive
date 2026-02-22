@@ -57,9 +57,9 @@ Edit `specs/prd.md` with your product requirements. See the spec2cloud workflow 
 
 ## How spec2cloud Works
 
-spec2cloud uses an AI orchestrator (defined in `AGENTS.md`) that drives your project through 6 phases. Each phase has a specialized agent, and 5 reusable skills provide cross-cutting capabilities.
+spec2cloud uses an AI orchestrator (defined in `AGENTS.md`) that drives your project through 7 phases. Each phase has a specialized agent, and 5 reusable skills provide cross-cutting capabilities.
 
-### The 6 Phases
+### The 7 Phases
 
 | Phase | Name | Agent | Human Gate | What Happens |
 |-------|------|-------|------------|-------------|
@@ -67,8 +67,9 @@ spec2cloud uses an AI orchestrator (defined in `AGENTS.md`) that drives your pro
 | 1 | Spec Refinement | `.github/agents/spec-refinement.agent.md` | ✅ | Review PRD for completeness, break into FRDs |
 | 2 | Gherkin Generation | `.github/agents/gherkin-generation.agent.md` | ✅ | Convert each FRD into Gherkin feature files |
 | 3 | Test Scaffolding | `.github/agents/test-generation.agent.md` | ❌ | Generate test code from Gherkin (red baseline) |
-| 4 | Implementation | `.github/agents/implementation.agent.md` | ✅ | Contract-first parallel slices make tests pass |
-| 5 | Deployment | `.github/agents/deploy.agent.md` | ✅ | Provision Azure resources, deploy, smoke test |
+| 4 | Contract Generation | `.github/agents/contract-generation.agent.md` | ✅ | API specs, shared types, and infra contracts |
+| 5 | Implementation | `.github/agents/implementation.agent.md` | ✅ | Contract-driven parallel slices make tests pass |
+| 6 | Deployment | `.github/agents/deploy.agent.md` | ✅ | Provision Azure resources, deploy, smoke test |
 
 ### The 5 Skills
 
@@ -96,15 +97,16 @@ Progress is tracked in `.spec2cloud/state.json` and `.spec2cloud/audit.log`. The
 ## Project Structure
 
 ```
-├── AGENTS.md                        # Orchestrator instructions (6-phase workflow)
+├── AGENTS.md                        # Orchestrator instructions (7-phase workflow)
 ├── SPEC2CLOUD.md                    # Project metadata
 ├── .github/
 │   ├── agents/                      # Specialized agent prompts
 │   │   ├── spec-refinement.agent.md # Phase 1: PRD/FRD review
 │   │   ├── gherkin-generation.agent.md # Phase 2: FRD → Gherkin
 │   │   ├── test-generation.agent.md # Phase 3: Gherkin → tests
-│   │   ├── implementation.agent.md  # Phase 4: Contract-first parallel slices
-│   │   └── deploy.agent.md          # Phase 5: Azure deployment
+│   │   ├── contract-generation.agent.md # Phase 4: API specs, shared types, infra contracts
+│   │   ├── implementation.agent.md  # Phase 5: Contract-driven parallel slices
+│   │   └── deploy.agent.md          # Phase 6: Azure deployment
 │   ├── skills/                      # Reusable agent skills
 │   │   ├── build-check/             # Build verification skill
 │   │   ├── test-runner/             # Test execution skill
@@ -114,9 +116,12 @@ Progress is tracked in `.spec2cloud/state.json` and `.spec2cloud/audit.log`. The
 │   └── copilot-instructions.md      # AI coding conventions
 ├── specs/                           # Your product specifications
 │   ├── prd.md                       # Product Requirements Document (start here!)
-│   └── features/                    # Generated Gherkin .feature files
+│   ├── features/                    # Generated Gherkin .feature files
+│   └── contracts/                   # Contracts generated in Phase 4
+│       ├── api/                     # API contracts per feature (YAML)
+│       └── infra/                   # Infrastructure contract (resources.yaml)
 ├── src/
-│   ├── shared/types/                # Contract types (generated in Phase 4)
+│   ├── shared/types/                # Shared TypeScript types (generated in Phase 4)
 │   ├── api/                         # Express.js API (TypeScript)
 │   │   ├── src/index.ts             # API entry point
 │   │   ├── src/routes/              # API route handlers
@@ -186,15 +191,15 @@ spec2cloud generates a 4-layer test pyramid, partitioned across implementation s
 3. **Playwright** (`e2e/`) — Integration slice: full user journey end-to-end tests
 4. **Supertest** (API integration tests) — API slice: backend API integration tests
 
-Tests are generated in Phase 3 as a **red baseline** (they compile but fail). Phase 4 implements code across parallel slices to make them pass:
+Tests are generated in Phase 3 as a **red baseline** (they compile but fail). Phase 4 generates contracts (API specs, shared types, infra requirements). Phase 5 implements code across parallel slices to make them pass:
 
 ```
 Per feature:
-  [Contract Gen] ──┬──> [API Slice: Vitest/Supertest]  ──┬──> [Integration Slice: Cucumber/Playwright]
-                   └──> [Web Slice: Build/Components]   ──┘
+  [Contracts (Phase 4)] ──┬──> [API Slice: Vitest/Supertest]  ──┬──> [Integration Slice: Cucumber/Playwright]
+                          └──> [Web Slice: Build/Components]   ──┘
 ```
 
-API and Web slices run in parallel against shared TypeScript contract types. The integration slice wires them together and runs Cucumber + Playwright.
+API and Web slices run in parallel against shared TypeScript contract types from Phase 4. The integration slice wires them together and runs Cucumber + Playwright.
 
 ## Deploy to Azure
 

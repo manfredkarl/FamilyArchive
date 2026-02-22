@@ -28,6 +28,10 @@ Each entry is a single line:
 | spec-refinement    | `review-frd`         | AI reviewed an FRD and suggested changes. |
 | gherkin-generation | `generate-gherkin`   | Gherkin feature file generated from an approved FRD. |
 | test-generation    | `generate-tests`     | Test scaffolds (Cucumber, Playwright, xUnit) generated for a feature. |
+| contract-generation | `generate-api-contract` | API contract (YAML) generated for a feature from Gherkin + tests. |
+| contract-generation | `generate-shared-types` | Shared TypeScript types generated for a feature from API contract. |
+| contract-generation | `generate-infra-contract` | Infrastructure resource contract generated across all features. |
+| contract-generation | `validate-contracts` | Cross-validation of all contracts for completeness and consistency. |
 | implementation     | `implement`          | Code written or modified for a feature iteration. |
 | implementation     | `run-tests`          | Test suite executed during implementation. |
 | deployment         | `provision`          | Azure resources provisioned via `azd provision`. |
@@ -62,7 +66,17 @@ The following shows a realistic progression from spec-refinement through mid-imp
 [2025-01-15T09:41:05Z] phase=test-generation action=generate-tests feature=FRD-002 result=success details="Cucumber steps + Playwright spec + xUnit tests generated"
 [2025-01-15T09:43:30Z] phase=test-generation action=generate-tests feature=FRD-003 result=success details="Cucumber steps + Playwright spec + xUnit tests generated"
 [2025-01-15T09:44:00Z] phase=test-generation action=run-tests result=success details="Red baseline verified — all 42 tests fail as expected"
-[2025-01-15T09:44:05Z] phase=test-generation action=phase-transition result=success details="test-generation → implementation"
+[2025-01-15T09:44:05Z] phase=test-generation action=phase-transition result=success details="test-generation → contract-generation"
+[2025-01-15T09:46:00Z] phase=contract-generation action=generate-api-contract feature=FRD-001 result=success details="3 endpoints in user-auth.yaml"
+[2025-01-15T09:48:00Z] phase=contract-generation action=generate-shared-types feature=FRD-001 result=success details="6 types in src/shared/types/user-auth.ts"
+[2025-01-15T09:50:00Z] phase=contract-generation action=generate-api-contract feature=FRD-002 result=success details="5 endpoints in task-management.yaml"
+[2025-01-15T09:52:00Z] phase=contract-generation action=generate-shared-types feature=FRD-002 result=success details="8 types in src/shared/types/task-management.ts"
+[2025-01-15T09:54:00Z] phase=contract-generation action=generate-api-contract feature=FRD-003 result=success details="2 endpoints in notifications.yaml"
+[2025-01-15T09:55:00Z] phase=contract-generation action=generate-shared-types feature=FRD-003 result=success details="4 types in src/shared/types/notifications.ts"
+[2025-01-15T09:57:00Z] phase=contract-generation action=generate-infra-contract result=success details="5 resources in resources.yaml"
+[2025-01-15T09:58:00Z] phase=contract-generation action=validate-contracts result=success details="All contracts consistent — 10 endpoints, 18 types, 5 resources"
+[2025-01-15T09:59:00Z] phase=contract-generation action=human-gate-approve result=approved details="Contracts approved by user"
+[2025-01-15T09:59:05Z] phase=contract-generation action=phase-transition result=success details="contract-generation → implementation"
 [2025-01-15T10:02:18Z] phase=implementation action=implement feature=FRD-001 iteration=1 result=success details="Auth endpoints scaffolded"
 [2025-01-15T10:05:44Z] phase=implementation action=run-tests feature=FRD-001 iteration=1 result=failure details="unit: 8/12 pass, gherkin: 2/6 pass, playwright: 0/3 pass"
 [2025-01-15T10:20:33Z] phase=implementation action=implement feature=FRD-001 iteration=2 result=success details="JWT middleware + login flow"

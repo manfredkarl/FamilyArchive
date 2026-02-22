@@ -28,6 +28,7 @@
     "phase0": true,
     "phase1": true,
     "phase2": true,
+    "phase4-contracts": false,
     "phase4": false,
     "phase5": false
   },

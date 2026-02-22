@@ -1,6 +1,6 @@
 ---
 name: deploy-diagnostics
-description: Diagnose and resolve Azure deployment failures by analyzing error output, checking Azure resource state, and suggesting fixes. Use when azd provision fails, azd deploy fails, smoke tests fail against live deployment, container images fail to push/pull, or any Phase 5 deployment error occurs. Trigger on deployment errors, infrastructure failures, or post-deploy smoke test failures.
+description: Diagnose and resolve Azure deployment failures by analyzing error output, checking Azure resource state, and suggesting fixes. Use when azd provision fails, azd deploy fails, smoke tests fail against live deployment, container images fail to push/pull, or any Phase 6 deployment error occurs. Trigger on deployment errors, infrastructure failures, or post-deploy smoke test failures.
 ---
 
 # Deploy Diagnostics
