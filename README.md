@@ -8,12 +8,14 @@ A spec2cloud shell template for building full-stack applications with:
 - **Orchestration**: concurrently (local dev)
 - **Deployment**: Azure Container Apps via Azure Developer CLI (azd)
 - **Testing**: Playwright (e2e) + Cucumber.js (Gherkin/BDD) + Vitest (unit/integration)
+- **Documentation**: MkDocs Material with auto-generated feature docs and screenshots
 
-spec2cloud is an AI-driven development workflow. You write a PRD, and spec2cloud agents handle the rest — reviewing specs, generating tests, implementing features, and deploying to Azure.
+spec2cloud is an AI-driven development workflow. You write a PRD, and spec2cloud agents handle the rest — reviewing specs, generating tests, implementing features, generating documentation, and deploying to Azure.
 
 ## Prerequisites
 
 - Node.js 20+
+- Python 3.12+ (for MkDocs documentation)
 - Docker (for containerized deployment)
 - Azure Developer CLI (azd) — for Azure deployment
 - GitHub Copilot CLI or compatible AI coding agent
@@ -33,43 +35,59 @@ cd src/web && npm install && cd ../..
 cd src/api && npm install && cd ../..
 ```
 
-### 3. Run locally
+### 3. Set up MCP servers (optional, for Copilot CLI)
 ```bash
-# Start both services
+bash scripts/setup-copilot-mcp.sh
+```
+This reads `.vscode/mcp.json` and configures Copilot CLI's `~/.copilot/mcp-config.json` with the project's MCP servers.
+
+### 4. Run locally
+```bash
+# Start API, web, and docs servers
 npm run dev:all
 
 # Or run services individually:
-# API only
-cd src/api && npm run dev
-
-# Web only
-cd src/web && npm run dev
+npm run dev:api    # Express API on port 3001
+npm run dev        # Next.js on port 3000
+npm run dev:docs   # MkDocs on port 8000
 ```
 
-### 4. Write your PRD
+### 5. Write your PRD
 Edit `specs/prd.md` with your product requirements. See the spec2cloud workflow below for what happens next.
 
 ## How spec2cloud Works
 
-spec2cloud uses an AI orchestrator (defined in `AGENTS.md`) that drives your project through 6 phases. Each phase has a specialized agent and most have human approval gates.
+spec2cloud uses an AI orchestrator (defined in `AGENTS.md`) that drives your project through 6 phases. Each phase has a specialized agent, and 5 reusable skills provide cross-cutting capabilities.
 
 ### The 6 Phases
 
 | Phase | Name | Agent | Human Gate | What Happens |
 |-------|------|-------|------------|-------------|
 | 0 | Shell Setup | Orchestrator | ✅ | Verify shell structure, scaffold directories |
-| 1 | Spec Refinement | `agents/spec-refinement.agent.md` | ✅ | Review PRD for completeness, break into FRDs |
-| 2 | Gherkin Generation | `agents/gherkin-generation.agent.md` | ✅ | Convert each FRD into Gherkin feature files |
-| 3 | Test Scaffolding | `agents/test-generation.agent.md` | ❌ | Generate test code from Gherkin (red baseline) |
-| 4 | Implementation | `agents/implementation.agent.md` | ✅ | Contract-first parallel slices make tests pass |
-| 5 | Deployment | `agents/deploy.agent.md` | ✅ | Provision Azure resources, deploy, smoke test |
+| 1 | Spec Refinement | `.github/agents/spec-refinement.agent.md` | ✅ | Review PRD for completeness, break into FRDs |
+| 2 | Gherkin Generation | `.github/agents/gherkin-generation.agent.md` | ✅ | Convert each FRD into Gherkin feature files |
+| 3 | Test Scaffolding | `.github/agents/test-generation.agent.md` | ❌ | Generate test code from Gherkin (red baseline) |
+| 4 | Implementation | `.github/agents/implementation.agent.md` | ✅ | Contract-first parallel slices make tests pass |
+| 5 | Deployment | `.github/agents/deploy.agent.md` | ✅ | Provision Azure resources, deploy, smoke test |
+
+### The 5 Skills
+
+Skills are reusable agent procedures in `.github/skills/` that provide cross-cutting capabilities:
+
+| Skill | Purpose |
+|-------|---------|
+| `build-check` | Verify API and Web services build successfully before tests or deployment |
+| `test-runner` | Execute the appropriate test suite (unit, Gherkin, e2e, smoke) with structured results |
+| `spec-validator` | Validate consistency and traceability across the spec chain (PRD → FRD → Gherkin) |
+| `deploy-diagnostics` | Diagnose and resolve Azure deployment failures |
+| `skill-creator` | Guide for creating new skills to extend agent capabilities |
 
 ### Using the Workflow
 
 1. **Write your PRD** in `specs/prd.md`
 2. **Start the orchestrator** — open this project in GitHub Copilot (or compatible AI agent) and it will read `AGENTS.md` to begin orchestration
 3. **Approve at gates** — the agent pauses at human gates for your review
-4. **Watch it build** — the agent generates specs → tests → code → deployment
+4. **Watch it build** — the agent generates specs → tests → code → docs → deployment
 
 ### State Management
 
@@ -78,35 +96,50 @@ Progress is tracked in `.spec2cloud/state.json` and `.spec2cloud/audit.log`. The
 ## Project Structure
 
 ```
-├── AGENTS.md                    # Orchestrator instructions (6-phase workflow)
-├── agents/                      # Specialized agent prompts
-│   ├── spec-refinement.md       # Phase 1: PRD/FRD review
-│   ├── gherkin-generation.md    # Phase 2: FRD → Gherkin
-│   ├── test-generation.md       # Phase 3: Gherkin → tests
-│   ├── implementation.md        # Phase 4: Contract-first parallel slices
-│   └── deploy.md                # Phase 5: Azure deployment
-├── specs/                       # Your product specifications
-│   ├── prd.md                   # Product Requirements Document (start here!)
-│   └── features/                # Generated Gherkin .feature files
+├── AGENTS.md                        # Orchestrator instructions (6-phase workflow)
+├── SPEC2CLOUD.md                    # Project metadata
+├── .github/
+│   ├── agents/                      # Specialized agent prompts
+│   │   ├── spec-refinement.agent.md # Phase 1: PRD/FRD review
+│   │   ├── gherkin-generation.agent.md # Phase 2: FRD → Gherkin
+│   │   ├── test-generation.agent.md # Phase 3: Gherkin → tests
+│   │   ├── implementation.agent.md  # Phase 4: Contract-first parallel slices
+│   │   └── deploy.agent.md          # Phase 5: Azure deployment
+│   ├── skills/                      # Reusable agent skills
+│   │   ├── build-check/             # Build verification skill
+│   │   ├── test-runner/             # Test execution skill
+│   │   ├── spec-validator/          # Spec chain validation skill
+│   │   ├── deploy-diagnostics/      # Deployment troubleshooting skill
+│   │   └── skill-creator/           # Skill authoring guide
+│   └── copilot-instructions.md      # AI coding conventions
+├── specs/                           # Your product specifications
+│   ├── prd.md                       # Product Requirements Document (start here!)
+│   └── features/                    # Generated Gherkin .feature files
 ├── src/
-│   ├── shared/types/            # Contract types (generated in Phase 4)
-│   ├── api/                     # Express.js API (TypeScript)
-│   │   ├── src/index.ts         # API entry point
-│   │   ├── src/routes/          # API route handlers
-│   │   ├── src/models/          # Data models
-│   │   ├── src/services/        # Business logic
-│   │   ├── package.json         # API dependencies
-│   │   └── tests/               # Vitest tests
-│   └── web/                     # Next.js 16 frontend
-│       └── src/app/             # App Router pages & components
-├── e2e/                         # Playwright end-to-end tests
-├── tests/                       # Cucumber.js BDD tests
-├── infra/                       # Azure infrastructure (Bicep)
-├── azure.yaml                   # Azure Developer CLI config
-├── .spec2cloud/                 # Orchestration state
-│   ├── state.json               # Current phase & progress (per-slice tracking)
-│   └── audit.log                # Action history
-└── .github/                     # CI/CD workflows
+│   ├── shared/types/                # Contract types (generated in Phase 4)
+│   ├── api/                         # Express.js API (TypeScript)
+│   │   ├── src/index.ts             # API entry point
+│   │   ├── src/routes/              # API route handlers
+│   │   ├── src/models/              # Data models
+│   │   ├── src/services/            # Business logic
+│   │   ├── package.json             # API dependencies
+│   │   └── tests/                   # Vitest tests
+│   └── web/                         # Next.js 16 frontend
+│       └── src/app/                 # App Router pages & components
+├── e2e/                             # Playwright end-to-end tests
+├── tests/                           # Cucumber.js BDD tests
+├── scripts/
+│   ├── generate-docs.ts             # Gherkin → MkDocs feature pages
+│   └── setup-copilot-mcp.sh         # Configure Copilot CLI MCP servers
+├── docs/                            # MkDocs documentation source
+├── docs.Dockerfile                  # Containerized docs site (nginx)
+├── mkdocs.yml                       # MkDocs Material configuration
+├── infra/                           # Azure infrastructure (Bicep)
+├── azure.yaml                       # Azure Developer CLI config
+├── .spec2cloud/                     # Orchestration state
+│   ├── state.json                   # Current phase & progress (per-slice tracking)
+│   └── audit.log                    # Action history
+└── .github/                         # CI/CD workflows
 ```
 
 ## Available Scripts
@@ -114,12 +147,35 @@ Progress is tracked in `.spec2cloud/state.json` and `.spec2cloud/audit.log`. The
 | Script | Command | Description |
 |--------|---------|-------------|
 | Dev | `npm run dev` | Start Next.js dev server only |
-| Dev All | `npm run dev:all` | Start both API and web servers |
+| Dev All | `npm run dev:all` | Start API, web, and docs servers concurrently |
 | API Dev | `npm run dev:api` | Start Express API dev server |
+| Docs Dev | `npm run dev:docs` | Start MkDocs dev server on port 8000 |
 | Build | `npm run build` | Build the Next.js frontend |
+| Build API | `npm run build:api` | Build the Express API |
+| Build All | `npm run build:all` | Build both API and web |
+| API Tests | `npm run test:api` | Run Vitest API unit tests |
 | E2E Tests | `npm run test:e2e` | Run Playwright end-to-end tests |
 | BDD Tests | `npm run test:cucumber` | Run Cucumber.js Gherkin tests |
-| All Tests | `npm run test:all` | Run all test suites |
+| All Tests | `npm run test:all` | Run all test suites (API + Cucumber + Playwright) |
+| Docs Generate | `npm run docs:generate` | Generate MkDocs pages from Gherkin features |
+| Docs Screenshots | `npm run docs:screenshots` | Capture screenshots during Cucumber runs |
+| Docs Full | `npm run docs:full` | Screenshots + generate (full docs pipeline) |
+| Docs Serve | `npm run docs:serve` | Serve docs locally with MkDocs |
+| Docs Build | `npm run docs:build` | Build static docs site |
+
+## Documentation Pipeline
+
+spec2cloud auto-generates user-facing documentation from Gherkin features and Playwright screenshots:
+
+1. **Capture screenshots** — `npm run docs:screenshots` runs Cucumber with `GENERATE_SCREENSHOTS=true`, which triggers Playwright to capture screenshots at each scenario step
+2. **Generate docs** — `npm run docs:generate` parses `.feature` files and matches them with screenshots to produce MkDocs-compatible markdown pages
+3. **Serve locally** — `npm run docs:serve` previews the docs site with MkDocs Material theme
+4. **Containerize** — `docs.Dockerfile` builds a static docs site served by nginx (port 8080), deployable to Azure Container Apps
+
+Run the full pipeline in one command:
+```bash
+npm run docs:full
+```
 
 ## Testing Strategy
 
@@ -159,10 +215,11 @@ This template ships with a chat-based UI pattern. You can:
 - **Replace the frontend** — swap Next.js for any framework
 - **Replace the backend** — swap Express for any Node.js framework
 - **Add services** — add databases, caches, or other backends
-- **Modify agents** — customize the agent prompts in `agents/` for your workflow
+- **Modify agents** — customize the agent prompts in `.github/agents/` for your workflow
+- **Add skills** — create new skills in `.github/skills/` for reusable agent procedures
 - **Change models** — update `.spec2cloud/models.json` to use different AI models
 
-The key files to customize are `AGENTS.md` (orchestration behavior) and the agent files in `agents/`.
+The key files to customize are `AGENTS.md` (orchestration behavior) and the agent files in `.github/agents/`.
 
 ## License
 

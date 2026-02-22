@@ -43,11 +43,15 @@ function findScreenshots(featureSlug: string, scenarioSlug: string): string[] {
     .sort();
 }
 
-function findFinalScreenshot(featureSlug: string, scenarioSlug: string): string | undefined {
+function findFinalScreenshot(featureSlug: string, scenarioSlug: string): { filename: string; status: string } | undefined {
   const dir = path.join(SCREENSHOTS_DIR, featureSlug, scenarioSlug);
   if (!fs.existsSync(dir)) return undefined;
   const finals = fs.readdirSync(dir).filter(f => f.startsWith('999-'));
-  return finals[0];
+  if (finals.length === 0) return undefined;
+  // Prefer final > skipped > failure
+  const final = finals.find(f => f.includes('final')) || finals.find(f => f.includes('skipped')) || finals[0];
+  const status = final.includes('failure') ? 'failure' : final.includes('skipped') ? 'skipped' : 'passed';
+  return { filename: final, status };
 }
 
 function stepTextFromFilename(filename: string): string {
@@ -202,8 +206,18 @@ function generateFeaturePage(feature: ParsedFeature): string {
       }
 
       if (finalScreenshot) {
-        const relPath = `../screenshots/${feature.slug}/${scenario.slug}/${finalScreenshot}`;
-        const label = finalScreenshot.includes('failure') ? '❌ Final State (Failure)' : '✅ Final State';
+        const relPath = `../screenshots/${feature.slug}/${scenario.slug}/${finalScreenshot.filename}`;
+        let label: string;
+        switch (finalScreenshot.status) {
+          case 'failure':
+            label = '❌ Final State (Failed)';
+            break;
+          case 'skipped':
+            label = '⏭️ Skipped / Pending';
+            break;
+          default:
+            label = '✅ Final State';
+        }
         lines.push(`### ${label}`);
         lines.push('');
         lines.push(`![Final state](${relPath})`);

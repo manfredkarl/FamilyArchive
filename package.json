@@ -9,7 +9,8 @@
   "scripts": {
     "dev": "cd src/web && npm run dev",
     "dev:api": "cd src/api && npm run dev",
-    "dev:all": "npx concurrently \"npm run dev:api\" \"npm run dev\"",
+    "dev:docs": "mkdocs serve --dev-addr 0.0.0.0:8000",
+    "dev:all": "npx concurrently \"npm run dev:api\" \"npm run dev\" \"npm run dev:docs\"",
     "build": "cd src/web && npm run build",
     "build:api": "cd src/api && npm run build",
     "build:all": "npm run build:api && npm run build",
@@ -18,6 +19,8 @@
     "test:api": "cd src/api && npm test",
     "test:all": "npm run test:api && npm run test:cucumber && npm run test:e2e",
     "docs:generate": "npx ts-node scripts/generate-docs.ts",
+    "docs:screenshots": "GENERATE_SCREENSHOTS=true npx cucumber-js --format progress",
+    "docs:full": "npm run docs:screenshots && npm run docs:generate",
     "docs:serve": "npx mkdocs serve",
     "docs:build": "npx mkdocs build"
   },
