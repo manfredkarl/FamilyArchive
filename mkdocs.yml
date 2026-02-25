@@ -1,5 +1,5 @@
 site_name: Application User Manual
-site_description: Auto-generated from Gherkin features and Playwright screenshots
+site_description: Auto-generated from UI/UX wireframes, Gherkin features, and Playwright screenshots
 docs_dir: docs
 
 theme:
@@ -21,6 +21,7 @@ theme:
     - navigation.instant
     - navigation.sections
     - navigation.expand
+    - navigation.tabs
     - content.tabs.link
     - search.suggest
 

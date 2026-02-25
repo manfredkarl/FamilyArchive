@@ -33,6 +33,7 @@ coverage/
 
 # Docs (auto-generated)
 docs/features/
+docs/design/
 docs/screenshots/
 docs/nav.yml
 site/

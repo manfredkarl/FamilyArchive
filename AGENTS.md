@@ -81,7 +81,7 @@ You operate across 8 phases. Each phase has a clear goal, exit condition, and hu
 
 ### Phase 2: UI/UX Design & Prototyping
 
-**Goal:** Interactive HTML wireframe prototypes exist for every screen in the app. The agent opens them in the **built-in browser**, walks through the flows live, takes screenshots, and iterates with the human until the design is approved — providing a concrete visual reference for Gherkin generation.
+**Goal:** Interactive HTML wireframe prototypes exist for every screen in the app — and they are **first-class specs** that persist and ground all subsequent phases. The agent serves them via a local HTTP server (port-forwarded to the human), walks through the flows live in the browser, produces a replayable walkthrough script, and iterates until the design is approved. Human feedback flows back to both wireframes **and** PRD/FRD specs when it reveals requirement gaps.
 
 **Entry condition:** Phase 1 approved. All FRDs finalized.
 
@@ -90,15 +90,22 @@ You operate across 8 phases. Each phase has a clear goal, exit condition, and hu
 2. Produce a screen map (`specs/ui/screen-map.md`) listing all screens with their purpose, FRD mapping, key elements, and navigation connections
 3. Bootstrap a minimal design system (`specs/ui/design-system.md`) — colors, typography, spacing, component patterns
 4. For each screen, generate a self-contained HTML wireframe prototype in `specs/ui/prototypes/{screen-name}.html` — inline CSS/JS, realistic placeholder data, working navigation between pages, interactive elements (forms, modals, tabs). Generate an `index.html` hub page linking to all screens.
-5. **Open prototypes in the built-in browser** — use `browser_navigate` with `file://` URLs, take screenshots with `browser_take_screenshot`, test interactions with `browser_click`/`browser_fill_form`, verify responsive layouts with `browser_resize`, and capture accessibility snapshots with `browser_snapshot`
-6. Create a flow walkthrough (`specs/ui/flow-walkthrough.md`) documenting the step-by-step user journey per FRD with browser screenshots at each step
-7. Present prototypes to the human via live browser preview — iterate on HTML files, reload in browser, and re-screenshot until approved
+5. **Serve prototypes via local HTTP server** — start a simple HTTP server (e.g., `npx serve specs/ui/prototypes`) and forward the port so the human can browse prototypes interactively. Use `browser_navigate` with the served URL, take screenshots with `browser_take_screenshot`, test interactions with `browser_click`/`browser_fill_form`, verify responsive layouts with `browser_resize`, and capture accessibility snapshots with `browser_snapshot`
+6. **Generate a walkthrough script** (`specs/ui/walkthrough.html`) — a self-contained HTML page that embeds screenshots, step-by-step narration, and click-through flow for each FRD user journey. This is the **replayable walkthrough** that persists as documentation. Also generate the narrative in `specs/ui/flow-walkthrough.md`.
+7. Present prototypes to the human via the served URL — iterate on HTML files, reload in browser, and re-screenshot until approved
+8. **Feedback-to-specs loop**: When human feedback reveals missing requirements, ambiguous flows, or new edge cases — update the wireframes **and** propagate changes back to the relevant FRD(s) and PRD. Mark changed FRDs with a `[UI-REVISED]` annotation so downstream phases know which specs were refined during prototyping.
 
-**Exit condition:** Human approves the prototypes. Screen map and flow walkthrough are ready to feed into Gherkin generation.
+**Exit condition:** Human approves the prototypes. All UI/UX artifacts are committed and ready to ground Gherkin, tests, and implementation:
+- `specs/ui/screen-map.md` — canonical screen inventory (referenced by Gherkin scenarios for screen names)
+- `specs/ui/design-system.md` — design tokens (consumed by Web slice in Phase 6)
+- `specs/ui/prototypes/*.html` — interactive wireframes (visual spec for Page Object Models and component structure)
+- `specs/ui/walkthrough.html` — replayable walkthrough (embedded in docs site)
+- `specs/ui/flow-walkthrough.md` — narrative walkthroughs per FRD
+- `specs/ui/component-inventory.md` — enumeration of every UI component, its props/states, and which screen(s) use it (consumed by test generation and implementation)
 
 **Phase commit:** After human approval, commit per §4: `[phase-2] UI/UX design complete — N screens prototyped`.
 
-**Human gate:** Yes. Present screen map, design system, prototype links, and flow walkthrough. Ask for approval.
+**Human gate:** Yes. Present screen map, design system, served prototype URL, walkthrough, and component inventory. Ask for approval.
 
 **Delegate to:** `.github/agents/ui-ux-design.agent.md`
 
@@ -106,14 +113,16 @@ You operate across 8 phases. Each phase has a clear goal, exit condition, and hu
 
 ### Phase 3: Gherkin Generation
 
-**Goal:** Every FRD has comprehensive, high-fidelity Gherkin scenarios in `specs/features/*.feature`.
+**Goal:** Every FRD has comprehensive, high-fidelity Gherkin scenarios in `specs/features/*.feature`, **grounded in the approved UI/UX prototypes**.
 
 **Entry condition:** Phase 2 approved. UI/UX prototypes finalized.
 
 **Tasks:**
-1. For each FRD, generate `.feature` files — reference the approved UI prototypes (`specs/ui/prototypes/`) and flow walkthrough to ensure Gherkin scenarios match the agreed-upon UI flows
-2. Self-review each feature file for: coverage (all FRD requirements?), simplicity (scenarios clear?), fidelity (edge cases?), no duplication
-3. Iterate until no gaps remain
+1. Read the **component inventory** (`specs/ui/component-inventory.md`) and **screen map** (`specs/ui/screen-map.md`) — use exact screen names and component names from the prototypes as the vocabulary for Gherkin scenarios (e.g., `When I click the "Add to Cart" button on the "Product Detail" screen`)
+2. For each FRD, generate `.feature` files — reference the approved UI prototypes (`specs/ui/prototypes/`) and flow walkthrough to ensure Gherkin scenarios match the agreed-upon UI flows. Each scenario must trace to a specific screen and interaction path from the prototypes.
+3. Include **UI-specific scenarios**: responsive behavior, navigation flows between screens, component state transitions (loading, empty, error), and accessibility (keyboard navigation, screen reader labels from `browser_snapshot` data)
+4. Self-review each feature file for: coverage (all FRD requirements?), UI grounding (scenarios match prototype screens?), simplicity (scenarios clear?), fidelity (edge cases?), no duplication
+5. Iterate until no gaps remain
 
 **Exit condition:** All FRDs have corresponding Gherkin scenarios. Human approves.
 
@@ -129,15 +138,17 @@ You operate across 8 phases. Each phase has a clear goal, exit condition, and hu
 
 ### Phase 4: Test Generation
 
-**Goal:** Executable test scaffolding exists. All tests compile and fail (red baseline).
+**Goal:** Executable test scaffolding exists. All tests compile and fail (red baseline). **Page Object Models and e2e tests are derived from UI prototypes.**
 
 **Entry condition:** Phase 3 approved. Gherkin scenarios finalized.
 
 **Tasks:**
-1. Generate step definitions (unit/integration tests) from Gherkin scenarios
-2. Generate Playwright e2e specs (`e2e/*.spec.ts`) from Gherkin scenarios
-3. Verify all tests compile/parse
-4. Verify all tests fail (no implementation yet — this is the red baseline)
+1. **Generate Page Object Models from prototypes** — read `specs/ui/component-inventory.md` and `specs/ui/screen-map.md` to create POM classes in `e2e/pages/`. Each POM maps 1:1 to a prototype screen, with selectors matching the HTML structure in `specs/ui/prototypes/{screen-name}.html`. This ensures e2e tests interact with the exact UI structure the human approved.
+2. Generate step definitions (unit/integration tests) from Gherkin scenarios — step definitions for UI-related scenarios should reference POMs
+3. Generate Playwright e2e specs (`e2e/*.spec.ts`) from Gherkin scenarios — each spec uses the POMs from step 1, not raw selectors. Navigation flows match the walkthrough in `specs/ui/flow-walkthrough.md`.
+4. Generate Cucumber step definitions that reference UI component names from the component inventory — e.g., `Given the "Product List" screen is displayed` maps to the POM and prototype
+5. Verify all tests compile/parse
+6. Verify all tests fail (no implementation yet — this is the red baseline)
 
 **Exit condition:** All tests compile and all tests fail. No human gate — this is a mechanical step.
 
@@ -252,7 +263,7 @@ Across features (when independent):
 
 **Tasks (per feature, using slices):**
 1. **API slice:** Implement backend routes, services, and models **against the API contracts and shared types from Phase 5**. Run unit tests (Vitest + Supertest) and Cucumber step definitions until green. No browser or frontend needed.
-2. **Web slice:** Implement frontend pages, components, and client logic **against the shared types from Phase 5**. Run component/build tests until green. Can mock API calls using the contract types. No running API server needed.
+2. **Web slice:** Implement frontend pages, components, and client logic **against the shared types from Phase 5 and the UI prototypes from Phase 2**. The approved HTML wireframes in `specs/ui/prototypes/` are the visual specification — extract component structure, layout patterns, and interaction behavior from them. Reference `specs/ui/design-system.md` for tokens and `specs/ui/component-inventory.md` for component props/states. Run component/build tests until green. Can mock API calls using the contract types. No running API server needed.
 3. **Integration slice:** Wire API + Web together. Start dev servers, run Playwright e2e tests for this feature until green. This slice is sequential — it waits for both API and Web slices to complete.
 4. **Regression check:** After all features complete their integration slices, run the full test suite (all unit + Gherkin + Playwright) to catch cross-feature conflicts.
 
@@ -837,17 +848,32 @@ shells/nextjs-typescript/
 ├── e2e/                              # Playwright end-to-end tests
 │   ├── playwright.config.ts
 │   ├── smoke.spec.ts                 # Smoke tests (@smoke tag)
-│   └── pages/                        # Page Object Models
+│   └── pages/                        # Page Object Models (derived from Phase 2 prototypes)
+├── docs/                             # MkDocs documentation (auto-generated)
+│   ├── index.md                      # User manual index (design + features)
+│   ├── design/                       # Design reference (copied from specs/ui/ by docs:generate)
+│   │   ├── screen-map.md             # Screen inventory (from Phase 2)
+│   │   ├── design-system.md          # Design tokens (from Phase 2)
+│   │   ├── components.md             # Component inventory (from Phase 2)
+│   │   ├── walkthrough.md            # Embedded walkthrough wrapper
+│   │   ├── walkthrough.html          # Replayable visual walkthrough
+│   │   ├── flow-walkthrough.md       # Flow narratives per FRD
+│   │   └── prototypes/               # HTML wireframes (browsable from docs)
+│   ├── features/                     # Feature pages (Gherkin + screenshots + wireframe embeds)
+│   ├── screenshots/                  # Playwright screenshots per feature/scenario
+│   └── nav.yml                       # Auto-generated navigation
 ├── tests/
 │   └── features/                     # Cucumber.js (Gherkin step definitions)
 │       ├── step-definitions/         # TypeScript step definition files
 │       └── support/                  # World class, hooks
 ├── specs/                            # PRD, FRDs, Gherkin feature files
-│   ├── ui/                       # UI/UX prototypes (Phase 2)
-│   │   ├── screen-map.md         # Screen inventory and navigation map
-│   │   ├── design-system.md      # Design tokens and component patterns
-│   │   ├── flow-walkthrough.md   # User journey walkthroughs per FRD
-│   │   └── prototypes/           # Interactive HTML wireframes
+│   ├── ui/                       # UI/UX specs & prototypes (Phase 2) — PERSISTENT, used by all downstream phases
+│   │   ├── screen-map.md         # Screen inventory and navigation map (→ Gherkin screen names)
+│   │   ├── design-system.md      # Design tokens and component patterns (→ Web slice)
+│   │   ├── component-inventory.md # All UI components, props, states (→ POMs, Gherkin, Web slice)
+│   │   ├── flow-walkthrough.md   # User journey narratives per FRD (→ e2e test flows)
+│   │   ├── walkthrough.html      # Replayable visual walkthrough (→ docs site)
+│   │   └── prototypes/           # Interactive HTML wireframes (→ POM selectors, component structure)
 │   ├── features/                     # .feature files consumed by Cucumber.js
 │   └── contracts/                    # Contracts generated in Phase 5
 │       ├── api/                      # API contracts per feature (OpenAPI-style YAML)
