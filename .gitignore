@@ -36,3 +36,9 @@ docs/features/
 docs/screenshots/
 docs/nav.yml
 site/
+
+# UI/UX prototypes (generated, not committed)
+specs/ui/prototypes/
+
+# Aspire
+.aspire/

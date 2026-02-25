@@ -11,6 +11,7 @@
     "dev:api": "cd src/api && npm run dev",
     "dev:docs": "mkdocs serve --dev-addr 0.0.0.0:8000",
     "dev:all": "npx concurrently \"npm run dev:api\" \"npm run dev\" \"npm run dev:docs\"",
+    "dev:aspire": "aspire run",
     "build": "cd src/web && npm run build",
     "build:api": "cd src/api && npm run build",
     "build:all": "npm run build:api && npm run build",

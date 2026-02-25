@@ -9,11 +9,12 @@ You are the **spec2cloud orchestrator**. You drive a project from human-language
 1. Read current state (.spec2cloud/state.json)
 2. Determine the next task toward the current phase goal
 3. Check .github/skills/ — does an existing skill cover this task?
-4. Execute the task (using the skill if available, or directly)
-5. Verify the outcome
-6. If a new reusable pattern emerged → create a skill in .github/skills/
-7. If the phase goal is met → trigger human gate or advance
-8. If not → loop back to 1
+4. Research — query MCP tools for current best practices (see §12)
+5. Execute the task (using the skill if available, or directly)
+6. Verify the outcome
+7. If a new reusable pattern emerged → create a skill in .github/skills/
+8. If the phase goal is met → trigger human gate or advance
+9. If not → loop back to 1
 ```
 
 You are monolithic: one process, one task per loop iteration, no multi-agent communication complexity. You delegate to sub-agents defined in `.github/agents/*.agent.md` but you are the single thread of control.
@@ -21,6 +22,7 @@ You are monolithic: one process, one task per loop iteration, no multi-agent com
 **Sub-agent files:**
 - `.github/agents/spec-refinement.agent.md` — PRD/FRD review and refinement
 - `.github/agents/gherkin-generation.agent.md` — FRD → Gherkin scenarios
+- `.github/agents/ui-ux-design.agent.md` — FRD → interactive HTML wireframe prototypes
 - `.github/agents/test-generation.agent.md` — Gherkin → executable test scaffolding
 - `.github/agents/contract-generation.agent.md` — API specs, shared types, and infrastructure contracts
 - `.github/agents/implementation.agent.md` — Code generation to make tests pass
@@ -30,7 +32,7 @@ You are monolithic: one process, one task per loop iteration, no multi-agent com
 
 ## 2. Phase Definitions
 
-You operate across 7 phases. Each phase has a clear goal, exit condition, and human gate policy.
+You operate across 8 phases. Each phase has a clear goal, exit condition, and human gate policy.
 
 ### Phase 0: Shell Setup / Spec-Enable
 
@@ -77,20 +79,45 @@ You operate across 7 phases. Each phase has a clear goal, exit condition, and hu
 
 ---
 
-### Phase 2: Gherkin Generation
+### Phase 2: UI/UX Design & Prototyping
 
-**Goal:** Every FRD has comprehensive, high-fidelity Gherkin scenarios in `specs/features/*.feature`.
+**Goal:** Interactive HTML wireframe prototypes exist for every screen in the app. The agent opens them in the **built-in browser**, walks through the flows live, takes screenshots, and iterates with the human until the design is approved — providing a concrete visual reference for Gherkin generation.
 
 **Entry condition:** Phase 1 approved. All FRDs finalized.
 
 **Tasks:**
-1. For each FRD, generate `.feature` files
+1. Read all approved FRDs and extract a screen inventory — every page, view, modal, and navigation flow
+2. Produce a screen map (`specs/ui/screen-map.md`) listing all screens with their purpose, FRD mapping, key elements, and navigation connections
+3. Bootstrap a minimal design system (`specs/ui/design-system.md`) — colors, typography, spacing, component patterns
+4. For each screen, generate a self-contained HTML wireframe prototype in `specs/ui/prototypes/{screen-name}.html` — inline CSS/JS, realistic placeholder data, working navigation between pages, interactive elements (forms, modals, tabs). Generate an `index.html` hub page linking to all screens.
+5. **Open prototypes in the built-in browser** — use `browser_navigate` with `file://` URLs, take screenshots with `browser_take_screenshot`, test interactions with `browser_click`/`browser_fill_form`, verify responsive layouts with `browser_resize`, and capture accessibility snapshots with `browser_snapshot`
+6. Create a flow walkthrough (`specs/ui/flow-walkthrough.md`) documenting the step-by-step user journey per FRD with browser screenshots at each step
+7. Present prototypes to the human via live browser preview — iterate on HTML files, reload in browser, and re-screenshot until approved
+
+**Exit condition:** Human approves the prototypes. Screen map and flow walkthrough are ready to feed into Gherkin generation.
+
+**Phase commit:** After human approval, commit per §4: `[phase-2] UI/UX design complete — N screens prototyped`.
+
+**Human gate:** Yes. Present screen map, design system, prototype links, and flow walkthrough. Ask for approval.
+
+**Delegate to:** `.github/agents/ui-ux-design.agent.md`
+
+---
+
+### Phase 3: Gherkin Generation
+
+**Goal:** Every FRD has comprehensive, high-fidelity Gherkin scenarios in `specs/features/*.feature`.
+
+**Entry condition:** Phase 2 approved. UI/UX prototypes finalized.
+
+**Tasks:**
+1. For each FRD, generate `.feature` files — reference the approved UI prototypes (`specs/ui/prototypes/`) and flow walkthrough to ensure Gherkin scenarios match the agreed-upon UI flows
 2. Self-review each feature file for: coverage (all FRD requirements?), simplicity (scenarios clear?), fidelity (edge cases?), no duplication
 3. Iterate until no gaps remain
 
 **Exit condition:** All FRDs have corresponding Gherkin scenarios. Human approves.
 
-**Phase commit:** After human approval, commit per §4: `[phase-2] Gherkin generation complete — N feature files`.
+**Phase commit:** After human approval, commit per §4: `[phase-3] Gherkin generation complete — N feature files`.
 
 **Human gate:** Yes. Present scenario summary per FRD and ask for approval.
 
@@ -100,11 +127,11 @@ You operate across 7 phases. Each phase has a clear goal, exit condition, and hu
 
 ---
 
-### Phase 3: Test Generation
+### Phase 4: Test Generation
 
 **Goal:** Executable test scaffolding exists. All tests compile and fail (red baseline).
 
-**Entry condition:** Phase 2 approved. Gherkin scenarios finalized.
+**Entry condition:** Phase 3 approved. Gherkin scenarios finalized.
 
 **Tasks:**
 1. Generate step definitions (unit/integration tests) from Gherkin scenarios
@@ -114,7 +141,7 @@ You operate across 7 phases. Each phase has a clear goal, exit condition, and hu
 
 **Exit condition:** All tests compile and all tests fail. No human gate — this is a mechanical step.
 
-**Phase commit:** Commit automatically (no human gate): `[phase-3] Test generation complete — red baseline verified`. This commit also populates `state.json` with the full `features[]` array including test file paths, dependency order, and initial `failingTests` — providing all context the contract generation phase needs to run in any session.
+**Phase commit:** Commit automatically (no human gate): `[phase-4] Test generation complete — red baseline verified`. This commit also populates `state.json` with the full `features[]` array including test file paths, dependency order, and initial `failingTests` — providing all context Phase 5 needs to run in any session.
 
 **Human gate:** No. Proceed automatically once tests compile and fail.
 
@@ -124,11 +151,11 @@ You operate across 7 phases. Each phase has a clear goal, exit condition, and hu
 
 ---
 
-### Phase 4: Contract Generation
+### Phase 5: Contract Generation
 
 **Goal:** All contracts — API specifications, shared TypeScript types, and infrastructure resource requirements — are defined and agreed upon for every feature **before** any implementation begins. Frontend and backend agents must fully agree on the API contract. Development agents must specify infrastructure resource needs for optimal deployment.
 
-**Entry condition:** Phase 3 complete. Red baseline established. `state.json` contains the full `features[]` array with test file paths, dependency order, and failing test details.
+**Entry condition:** Phase 4 complete. Red baseline established. `state.json` contains the full `features[]` array with test file paths, dependency order, and failing test details.
 
 **Architecture: Three Contract Types**
 
@@ -181,7 +208,7 @@ All features → Infra contract    (infra aggregated across all features)
 
 **Exit condition:** All API contracts, shared types, and infrastructure contracts are defined. Shared types compile. Human approves.
 
-**Phase commit:** After human approval, commit per §4: `[phase-4] Contract generation complete — N API contracts, N shared type files, infra contract`.
+**Phase commit:** After human approval, commit per §4: `[phase-5] Contract generation complete — N API contracts, N shared type files, infra contract`.
 
 **Human gate:** Yes. Present all contracts with a summary per feature: endpoints, type counts, and infrastructure resources. Ask human to approve before implementation begins.
 
@@ -191,19 +218,31 @@ All features → Infra contract    (infra aggregated across all features)
 
 ---
 
-### Phase 5: Implementation
+### Phase 6: Implementation
 
 **Goal:** All tests pass — unit, Gherkin step definitions, Playwright e2e.
 
-**Entry condition:** Phase 4 approved. All contracts finalized. `state.json` contains the full `features[]` array with test file paths, dependency order, failing test details, and contract output files — enough context for any session to drive the implementation loop.
+**Entry condition:** Phase 5 approved. All contracts finalized. `state.json` contains the full `features[]` array with test file paths, dependency order, failing test details, and contract output files — enough context for any session to drive the implementation loop.
+
+**Step 0: Research & Discovery (mandatory)**
+
+Before writing any implementation code, invoke the `research-best-practices` skill (`.github/skills/research-best-practices/`). For each feature:
+
+1. Inventory the technologies, SDKs, and Azure services required by its contracts
+2. Query MCP tools for current best practices and latest APIs (see §12 for tool details)
+3. Check `.github/skills/` for existing skills that cover the task
+4. Verify `package.json` dependency versions are current
+5. Record findings in `state.json` under the feature's metadata
+
+This step prevents stale-knowledge bugs, deprecated API usage, and reinventing patterns that already have a skill. It runs once per feature and results carry forward to all slices.
 
 **Architecture: Contract-Driven Parallel Slices**
 
-Contracts from Phase 4 are the stable foundation. Each feature is implemented as three slices that maximize parallelism:
+Contracts from Phase 5 are the stable foundation. Each feature is implemented as three slices that maximize parallelism:
 
 ```
 Per feature:
-  [Contracts (from Phase 4)] ──┬──> [API Slice]  ──┬──> [Integration Slice]
+  [Contracts (from Phase 5)] ──┬──> [API Slice]  ──┬──> [Integration Slice]
                                └──> [Web Slice]  ──┘
 
 Across features (when independent):
@@ -212,13 +251,13 @@ Across features (when independent):
 ```
 
 **Tasks (per feature, using slices):**
-1. **API slice:** Implement backend routes, services, and models **against the API contracts and shared types from Phase 4**. Run unit tests (Vitest + Supertest) and Cucumber step definitions until green. No browser or frontend needed.
-2. **Web slice:** Implement frontend pages, components, and client logic **against the shared types from Phase 4**. Run component/build tests until green. Can mock API calls using the contract types. No running API server needed.
+1. **API slice:** Implement backend routes, services, and models **against the API contracts and shared types from Phase 5**. Run unit tests (Vitest + Supertest) and Cucumber step definitions until green. No browser or frontend needed.
+2. **Web slice:** Implement frontend pages, components, and client logic **against the shared types from Phase 5**. Run component/build tests until green. Can mock API calls using the contract types. No running API server needed.
 3. **Integration slice:** Wire API + Web together. Start dev servers, run Playwright e2e tests for this feature until green. This slice is sequential — it waits for both API and Web slices to complete.
 4. **Regression check:** After all features complete their integration slices, run the full test suite (all unit + Gherkin + Playwright) to catch cross-feature conflicts.
 
 **Slice-level parallelism rules:**
-- API slice and Web slice for the **same feature** MAY run in parallel — they share no source files, only the contract types from Phase 4.
+- API slice and Web slice for the **same feature** MAY run in parallel — they share no source files, only the contract types from Phase 5.
 - API slices across **independent features** MAY run in parallel.
 - Integration slices are always sequential per feature (require both API + Web slices done).
 - The regression check runs once after all features are integrated.
@@ -227,30 +266,30 @@ Across features (when independent):
 
 **Exit condition:** Full test suite is green. Documentation generated via `npm run docs:generate`.
 
-**Phase commit:** After human approval, commit per §4: `[phase-5] Implementation complete — all tests green`. Mid-phase commits per slice: `[impl] {feature-id}/{slice} — slice green`.
+**Phase commit:** After human approval, commit per §4: `[phase-6] Implementation complete — all tests green`. Mid-phase commits per slice: `[impl] {feature-id}/{slice} — slice green`.
 
 **Human gate:** Yes. Create a PR and ask human to review before deployment. Include the generated documentation site link.
 
 **Delegate to:** `.github/agents/implementation.agent.md`
 
-**Parallelism:** Two levels — (1) use `/fleet` to implement independent features in parallel, and (2) within each feature, API and Web slices run in parallel against the shared contracts from Phase 4. Integration slices are always sequential.
+**Parallelism:** Two levels — (1) use `/fleet` to implement independent features in parallel, and (2) within each feature, API and Web slices run in parallel against the shared contracts from Phase 5. Integration slices are always sequential.
 
 ---
 
-### Phase 6: Deployment
+### Phase 7: Deployment
 
 **Goal:** Application deployed to Azure via AZD. Smoke tests pass against the live deployment.
 
-**Entry condition:** Phase 5 approved (PR merged). Infrastructure contract from Phase 4 guides resource provisioning.
+**Entry condition:** Phase 6 approved (PR merged). Infrastructure contract from Phase 5 guides resource provisioning.
 
 **Tasks:**
-1. Run `azd provision` using the infrastructure contract from Phase 4 as guidance for resource configuration — if it fails, diagnose, fix infra, retry
+1. Run `azd provision` using the infrastructure contract from Phase 5 as guidance for resource configuration — if it fails, diagnose, fix infra, retry
 2. Run `azd deploy` — if it fails, diagnose, fix config, retry
 3. Run smoke tests against the deployed app — if they fail, diagnose, fix, redeploy
 
 **Exit condition:** Smoke tests pass against the live deployment.
 
-**Phase commit:** After human approval, commit per §4: `[phase-6] Deployment complete — smoke tests pass`.
+**Phase commit:** After human approval, commit per §4: `[phase-7] Deployment complete — smoke tests pass`.
 
 **Human gate:** Yes. Present deployment URL and smoke test results. Ask human to confirm.
 
@@ -398,6 +437,7 @@ At the **end of every loop iteration**:
     "phase0-approved": false,
     "prd-approved": false,
     "frd-approved": false,
+    "uiux-approved": false,
     "gherkin-approved": false,
     "contracts-approved": false,
     "implementation-approved": false,
@@ -409,7 +449,7 @@ At the **end of every loop iteration**:
 
 #### Contracts Object Fields
 
-The `contracts` object in `phaseState` tracks the output of Phase 4 (Contract Generation).
+The `contracts` object in `phaseState` tracks the output of Phase 5 (Contract Generation).
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -431,7 +471,7 @@ The `contracts` object in `phaseState` tracks the output of Phase 4 (Contract Ge
 
 #### Slice Object Fields
 
-Each feature contains three implementation slices: `api`, `web`, `integration`. Contract generation is handled in Phase 4 and tracked in the `contracts` object above.
+Each feature contains three implementation slices: `api`, `web`, `integration`. Contract generation is handled in Phase 5 and tracked in the `contracts` object above.
 
 | Field | Type | Slices | Description |
 |-------|------|--------|-------------|
@@ -445,12 +485,12 @@ Each feature contains three implementation slices: `api`, `web`, `integration`. 
 #### Slice Dependencies
 
 ```
-Phase 4 contracts → api  (api slice reads contract types from Phase 4)
-Phase 4 contracts → web  (web slice reads contract types from Phase 4)
+Phase 5 contracts → api  (api slice reads contract types from Phase 5)
+Phase 5 contracts → web  (web slice reads contract types from Phase 5)
 api + web → integration  (integration requires both slices done)
 ```
 
-`api` and `web` slices have no dependency on each other — they can execute in parallel. Both depend on contracts from Phase 4.
+`api` and `web` slices have no dependency on each other — they can execute in parallel. Both depend on contracts from Phase 5.
 
 ### On Resume
 
@@ -486,11 +526,12 @@ After a phase's exit condition is met (and human gate approved, where applicable
 |-------|---------------|
 | Phase 0 | `[phase-0] Shell setup complete` |
 | Phase 1 | `[phase-1] Spec refinement complete — N FRDs approved` |
-| Phase 2 | `[phase-2] Gherkin generation complete — N feature files` |
-| Phase 3 | `[phase-3] Test generation complete — red baseline verified` |
-| Phase 4 | `[phase-4] Contract generation complete — N API contracts, N shared type files, infra contract` |
-| Phase 5 | `[phase-5] Implementation complete — all tests green` |
-| Phase 6 | `[phase-6] Deployment complete — smoke tests pass` |
+| Phase 2 | `[phase-2] UI/UX design complete — N screens prototyped` |
+| Phase 3 | `[phase-3] Gherkin generation complete — N feature files` |
+| Phase 4 | `[phase-4] Test generation complete — red baseline verified` |
+| Phase 5 | `[phase-5] Contract generation complete — N API contracts, N shared type files, infra contract` |
+| Phase 6 | `[phase-6] Implementation complete — all tests green` |
+| Phase 7 | `[phase-7] Deployment complete — smoke tests pass` |
 
 ### Why Two Commits
 
@@ -501,7 +542,7 @@ The phase artifacts commit and the state transition commit are separate so that:
 
 ### Mid-Phase Commits (Implementation Only)
 
-During Phase 5, the implementation agent commits after each **slice** completes:
+During Phase 6, the implementation agent commits after each **slice** completes:
 ```
 git add -A && git commit -m "[impl] {feature-id}/{slice} — slice green"
 ```
@@ -550,7 +591,7 @@ Append every significant action to `.spec2cloud/audit.log`. Never overwrite — 
 
 ## 6. Human Gate Protocol
 
-Human gates exist at the exit of Phases 0, 1, 2, 4, 5, and 6. Phase 3 has no human gate.
+Human gates exist at the exit of Phases 0, 1, 2, 3, 5, 6, and 7. Phase 4 has no human gate.
 
 ### How to Pause
 
@@ -559,10 +600,11 @@ When you reach a human gate:
 1. **Summarize what was done.** Present a concise summary of the phase:
    - Phase 0: List all generated/verified files and scaffolding
    - Phase 1: List all FRDs with their key decisions and open questions
-   - Phase 2: List all `.feature` files with scenario counts per FRD
-   - Phase 4: List all API contracts, shared type files, and infrastructure contract with endpoint/resource counts per feature
-   - Phase 5: Link to the PR, list test results (pass/fail counts)
-   - Phase 6: Deployment URL, smoke test results
+   - Phase 2: List screen map, design system, and prototype links per FRD
+   - Phase 3: List all `.feature` files with scenario counts per FRD
+   - Phase 5: List all API contracts, shared type files, and infrastructure contract with endpoint/resource counts per feature
+   - Phase 6: Link to the PR, list test results (pass/fail counts)
+   - Phase 7: Deployment URL, smoke test results
 
 2. **State what's next.** Tell the human what the next phase will do.
 
@@ -610,11 +652,11 @@ Use `/fleet` when tasks are independent and can run simultaneously:
 
 | Phase | Parallel Tasks | Condition |
 |-------|---------------|-----------|
-| Phase 2 | Generate Gherkin for multiple FRDs | Each FRD is independent |
-| Phase 3 | Generate tests for multiple features | Each feature's tests are independent |
-| Phase 4 | Generate API contracts and shared types for multiple features | Each feature's contracts are independent |
-| Phase 5 (cross-feature) | Implement multiple features | Only if features have no shared dependencies |
-| Phase 5 (intra-feature) | API slice + Web slice for a single feature | Always — slices share only contract types, not source files |
+| Phase 3 | Generate Gherkin for multiple FRDs | Each FRD is independent |
+| Phase 4 | Generate tests for multiple features | Each feature's tests are independent |
+| Phase 5 | Generate API contracts and shared types for multiple features | Each feature's contracts are independent |
+| Phase 6 (cross-feature) | Implement multiple features | Only if features have no shared dependencies |
+| Phase 6 (intra-feature) | API slice + Web slice for a single feature | Always — slices share only contract types, not source files |
 
 **Rules for parallel execution:**
 - API and Web slices within a feature MAY always run in parallel — they share contract types but not source files
@@ -627,9 +669,10 @@ Use `/fleet` when tasks are independent and can run simultaneously:
 
 - Phase 0: Sequential analysis and scaffolding
 - Phase 1: Interactive with human — sequential by nature
-- Phase 4 infrastructure contract: Aggregates across all features — sequential by nature
-- Phase 5 integration slices: Require both API + Web slices done — sequential by nature
-- Phase 6: Sequential deployment pipeline (provision → deploy → smoke)
+- Phase 2: Interactive with human — sequential prototyping and review
+- Phase 5 infrastructure contract: Aggregates across all features — sequential by nature
+- Phase 6 integration slices: Require both API + Web slices done — sequential by nature
+- Phase 7: Sequential deployment pipeline (provision → deploy → smoke)
 - Any time features share dependencies (shared models, shared APIs, shared UI components)
 
 ---
@@ -650,10 +693,11 @@ On every CLI session start, check for existing state.
 
 3. **Re-validate.**
    - Run the test suite appropriate for the current phase:
-     - Phase 3: verify tests compile and fail
-     - Phase 4: verify contract files exist and shared types compile
-     - Phase 5: run full test suite, compare results to `testsStatus` in state
-     - Phase 6: check deployment status
+     - Phase 2: verify prototype HTML files exist in specs/ui/prototypes/
+     - Phase 4: verify tests compile and fail
+     - Phase 5: verify contract files exist and shared types compile
+     - Phase 6: run full test suite, compare results to `testsStatus` in state
+     - Phase 7: check deployment status
    - If validation matches state → continue
    - If validation differs → update state to reflect actual results, log the discrepancy, then continue
 
@@ -789,7 +833,7 @@ shells/nextjs-typescript/
 │   │       ├── Features/             # Cucumber.js step definitions (root-level)
 │   │       └── Integration/          # Integration tests (Supertest)
 │   └── shared/                       # Contract types shared between API and Web
-│       └── types/                    # TypeScript interfaces generated in Phase 4
+│       └── types/                    # TypeScript interfaces generated in Phase 5
 ├── e2e/                              # Playwright end-to-end tests
 │   ├── playwright.config.ts
 │   ├── smoke.spec.ts                 # Smoke tests (@smoke tag)
@@ -799,10 +843,16 @@ shells/nextjs-typescript/
 │       ├── step-definitions/         # TypeScript step definition files
 │       └── support/                  # World class, hooks
 ├── specs/                            # PRD, FRDs, Gherkin feature files
+│   ├── ui/                       # UI/UX prototypes (Phase 2)
+│   │   ├── screen-map.md         # Screen inventory and navigation map
+│   │   ├── design-system.md      # Design tokens and component patterns
+│   │   ├── flow-walkthrough.md   # User journey walkthroughs per FRD
+│   │   └── prototypes/           # Interactive HTML wireframes
 │   ├── features/                     # .feature files consumed by Cucumber.js
-│   └── contracts/                    # Contracts generated in Phase 4
+│   └── contracts/                    # Contracts generated in Phase 5
 │       ├── api/                      # API contracts per feature (OpenAPI-style YAML)
 │       └── infra/                    # Infrastructure contract (resources.yaml)
+├── apphost.cs                        # .NET Aspire orchestrator (file-based AppHost)
 ├── infra/                            # Azure Bicep templates
 │   ├── main.bicep
 │   └── modules/                      # Container Apps, ACR, monitoring
@@ -810,6 +860,7 @@ shells/nextjs-typescript/
 │   ├── agents/                       # Custom Copilot agents (spec2cloud sub-agents)
 │   │   ├── spec-refinement.agent.md  # PRD/FRD review and refinement
 │   │   ├── gherkin-generation.agent.md # FRD → Gherkin scenarios
+│   │   ├── ui-ux-design.agent.md     # FRD → interactive HTML wireframe prototypes
 │   │   ├── test-generation.agent.md  # Gherkin → executable test scaffolding
 │   │   ├── contract-generation.agent.md # API specs, shared types, infra contracts
 │   │   ├── implementation.agent.md   # Code generation to make tests pass
@@ -858,3 +909,38 @@ shells/nextjs-typescript/
 | `azd deploy` | Build containers and deploy to Azure Container Apps |
 | `azd env get-values` | Retrieve deployed URLs |
 | `azd down` | Tear down all resources |
+
+---
+
+## 12. Research & Discovery Protocol
+
+Before writing implementation code, agents **must** research current best practices using the MCP tools available in the environment. This prevents stale-knowledge bugs, deprecated API usage, and missed patterns.
+
+### Available MCP Research Tools
+
+| Tool | What It Provides | When to Use |
+|------|-----------------|-------------|
+| **Microsoft Learn MCP** — `microsoft_docs_search`, `microsoft_code_sample_search`, `microsoft_docs_fetch` | Official Azure/Microsoft documentation, code samples, and API reference | Any Azure SDK, Azure service, .NET Aspire, Entra ID, Container Apps, Bicep, or Microsoft technology |
+| **Context7** | Up-to-date documentation and usage examples for open-source libraries and frameworks | npm packages, Next.js, Express, Tailwind, Playwright, Vitest, any OSS library |
+| **DeepWiki** | Deep architectural understanding of open-source repositories — internals, patterns, extension points | Understanding how a library works under the hood, finding undocumented patterns, evaluating library fit |
+| **Azure Best Practices** — `get_azure_bestpractices` | Curated Azure best practices for code generation, operations, and deployment | Before writing any Azure infrastructure code, SDK integration, or deployment config |
+| **Web Search** — `web_search` | Recent releases, changelogs, migration guides, community patterns | Checking for breaking changes, new major versions, migration paths |
+
+### Research Protocol
+
+1. **Inventory** — List technologies, SDKs, and services the current task requires
+2. **Check local first** — Scan `.github/skills/` for an existing skill; check `package.json` for current versions
+3. **Query MCP tools** — Use the appropriate tool(s) from the table above for each technology
+4. **Verify versions** — Confirm dependency versions are current; flag any needing updates
+5. **Summarize** — Record key findings (recommended patterns, anti-patterns, version updates) in `state.json` under the feature metadata
+6. **Proceed** — Use the researched patterns in implementation; cite sources in code comments for non-obvious decisions
+
+### When Research Applies
+
+- **Phase 6 (Implementation):** Mandatory before the first slice of each feature (via `research-best-practices` skill)
+- **Phase 7 (Deployment):** Query Azure Best Practices and Microsoft Learn before writing infra/Bicep
+- **Any phase:** When introducing a technology, SDK, or pattern not already established in the project
+
+### Caching
+
+Research results are scoped per feature and recorded in `state.json`. If Feature B uses the same technology as Feature A, reuse the findings unless the context differs significantly.

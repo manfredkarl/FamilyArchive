@@ -1,36 +1,15 @@
 {
-  "currentPhase": 4,
-  "phaseState": {
-    "prdDrafted": true,
-    "prdApproved": true,
-    "frds": {
-      "frd-auth": "complete",
-      "frd-profile": "complete",
-      "frd-rbac": "complete"
-    },
-    "gherkin": {
-      "auth": "complete",
-      "profile": "complete",
-      "rbac": "complete"
-    },
-    "tests": {
-      "apiUnit": "complete",
-      "cucumberSteps": "complete",
-      "playwright": "complete"
-    },
-    "testsStatus": {
-      "unit": { "pass": 31, "fail": 0 },
-      "playwright": { "pass": 23, "fail": 0 }
-    },
-    "implementation": "complete"
-  },
+  "currentPhase": 0,
+  "phaseState": {},
   "humanGates": {
-    "phase0": true,
-    "phase1": true,
-    "phase2": true,
-    "phase4-contracts": false,
-    "phase4": false,
-    "phase5": false
+    "phase0-approved": false,
+    "prd-approved": false,
+    "frd-approved": false,
+    "uiux-approved": false,
+    "gherkin-approved": false,
+    "contracts-approved": false,
+    "implementation-approved": false,
+    "deployment-approved": false
   },
-  "lastUpdated": "2026-02-13T10:46:00Z"
+  "lastUpdated": "2026-02-25T08:30:00Z"
 }
