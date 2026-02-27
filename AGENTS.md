@@ -21,9 +21,10 @@ You are monolithic: one process, one task per loop iteration, no multi-agent com
 
 **Sub-agent files:**
 - `.github/agents/spec-refinement.agent.md` — PRD/FRD review and refinement
-- `.github/agents/gherkin-generation.agent.md` — FRD → Gherkin scenarios
 - `.github/agents/ui-ux-design.agent.md` — FRD → interactive HTML wireframe prototypes
-- `.github/agents/test-generation.agent.md` — Gherkin → executable test scaffolding
+- `.github/agents/e2e-generation.agent.md` — Flow walkthrough → Playwright e2e tests
+- `.github/agents/gherkin-generation.agent.md` — FRD → Gherkin scenarios
+- `.github/agents/test-generation.agent.md` — Gherkin → Cucumber step definitions + Vitest unit tests
 - `.github/agents/contract-generation.agent.md` — API specs, shared types, and infrastructure contracts
 - `.github/agents/implementation.agent.md` — Code generation to make tests pass
 - `.github/agents/deploy.agent.md` — AZD provisioning, deployment, smoke tests
@@ -32,7 +33,24 @@ You are monolithic: one process, one task per loop iteration, no multi-agent com
 
 ## 2. Phase Definitions
 
-You operate across 8 phases. Each phase has a clear goal, exit condition, and human gate policy.
+You operate across 3 phases. Phase 0 and Phase 1 run once. Phase 2 is an **iterative delivery loop** that repeats for each increment — building the application incrementally, with a fully working, deployed, and tested product after each increment.
+
+```
+Phase 0: Shell Setup          (one-time)
+Phase 1: Product Discovery    (one-time)
+  ├── 1a: Spec Refinement     (PRD → FRDs)
+  ├── 1b: UI/UX Design        (prototypes, design system, walkthroughs)
+  └── 1c: Increment Planning  (break FRDs into ordered vertical slices)
+Phase 2: Increment Delivery   (repeats for each increment)
+  ├── Step 1: Test Scaffolding (E2E + Gherkin + BDD tests for THIS increment)
+  ├── Step 2: Contracts        (API specs + shared types for THIS increment)
+  ├── Step 3: Implementation   (API → Web → Integration against Aspire)
+  └── Step 4: Verify & Ship    (regression + deploy + docs → main is green)
+```
+
+**Core principle:** After each increment completes Step 4, the application on `main` is fully working — frontend serves, backend responds, all tests pass, Azure deployment is live, and documentation is generated. The next increment builds on top without breaking what exists.
+
+---
 
 ### Phase 0: Shell Setup / Spec-Enable
 
@@ -57,11 +75,17 @@ You operate across 8 phases. Each phase has a clear goal, exit condition, and hu
 
 ---
 
-### Phase 1: Spec Refinement
+### Phase 1: Product Discovery
 
-**Goal:** PRD and all FRDs are polished — no ambiguity, edge cases covered, technically feasible.
+**Goal:** The full product is specified, designed, and broken into ordered increments ready for iterative delivery. This phase runs once and produces all the artifacts that guide incremental development.
 
 **Entry condition:** Phase 0 approved. A `specs/prd.md` exists (human-written or drafted).
+
+---
+
+#### Phase 1a: Spec Refinement
+
+**Goal:** PRD and all FRDs are polished — no ambiguity, edge cases covered, technically feasible.
 
 **Tasks:**
 1. Review PRD through product lens (missing edge cases, unclear stories, conflicts, accessibility gaps, missing error states) and technical lens (infeasibility, performance, security, architecture, dependencies)
@@ -71,39 +95,33 @@ You operate across 8 phases. Each phase has a clear goal, exit condition, and hu
 
 **Exit condition:** Human approves all FRDs.
 
-**Phase commit:** After human approval, commit per §4: `[phase-1] Spec refinement complete — N FRDs approved`.
-
 **Human gate:** Yes. Present summary of all FRDs with key decisions and ask for approval.
 
 **Delegate to:** `.github/agents/spec-refinement.agent.md`
 
 ---
 
-### Phase 2: UI/UX Design & Prototyping
+#### Phase 1b: UI/UX Design & Prototyping
 
-**Goal:** Interactive HTML wireframe prototypes exist for every screen in the app — and they are **first-class specs** that persist and ground all subsequent phases. The agent serves them via a local HTTP server (port-forwarded to the human), walks through the flows live in the browser, produces a replayable walkthrough script, and iterates until the design is approved. Human feedback flows back to both wireframes **and** PRD/FRD specs when it reveals requirement gaps.
-
-**Entry condition:** Phase 1 approved. All FRDs finalized.
+**Goal:** Interactive HTML wireframe prototypes exist for every screen in the app — and they are **first-class specs** that persist and ground all subsequent phases. The agent serves them via a local HTTP server, walks through the flows live in the browser, produces a replayable walkthrough script, and iterates until the design is approved.
 
 **Tasks:**
 1. Read all approved FRDs and extract a screen inventory — every page, view, modal, and navigation flow
 2. Produce a screen map (`specs/ui/screen-map.md`) listing all screens with their purpose, FRD mapping, key elements, and navigation connections
 3. Bootstrap a minimal design system (`specs/ui/design-system.md`) — colors, typography, spacing, component patterns
 4. For each screen, generate a self-contained HTML wireframe prototype in `specs/ui/prototypes/{screen-name}.html` — inline CSS/JS, realistic placeholder data, working navigation between pages, interactive elements (forms, modals, tabs). Generate an `index.html` hub page linking to all screens.
-5. **Serve prototypes via local HTTP server** — start a simple HTTP server (e.g., `npx serve specs/ui/prototypes`) and forward the port so the human can browse prototypes interactively. Use `browser_navigate` with the served URL, take screenshots with `browser_take_screenshot`, test interactions with `browser_click`/`browser_fill_form`, verify responsive layouts with `browser_resize`, and capture accessibility snapshots with `browser_snapshot`
-6. **Generate a walkthrough script** (`specs/ui/walkthrough.html`) — a self-contained HTML page that embeds screenshots, step-by-step narration, and click-through flow for each FRD user journey. This is the **replayable walkthrough** that persists as documentation. Also generate the narrative in `specs/ui/flow-walkthrough.md`.
-7. Present prototypes to the human via the served URL — iterate on HTML files, reload in browser, and re-screenshot until approved
-8. **Feedback-to-specs loop**: When human feedback reveals missing requirements, ambiguous flows, or new edge cases — update the wireframes **and** propagate changes back to the relevant FRD(s) and PRD. Mark changed FRDs with a `[UI-REVISED]` annotation so downstream phases know which specs were refined during prototyping.
+5. **Serve prototypes via local HTTP server** — start a simple HTTP server and forward the port so the human can browse prototypes interactively
+6. **Generate a walkthrough script** (`specs/ui/walkthrough.html`) and narrative (`specs/ui/flow-walkthrough.md`) — step-by-step for each FRD user journey
+7. Present prototypes to the human — iterate until approved
+8. **Feedback-to-specs loop**: When human feedback reveals missing requirements — update wireframes **and** propagate changes back to the relevant FRD(s)
 
-**Exit condition:** Human approves the prototypes. All UI/UX artifacts are committed and ready to ground Gherkin, tests, and implementation:
-- `specs/ui/screen-map.md` — canonical screen inventory (referenced by Gherkin scenarios for screen names)
-- `specs/ui/design-system.md` — design tokens (consumed by Web slice in Phase 6)
-- `specs/ui/prototypes/*.html` — interactive wireframes (visual spec for Page Object Models and component structure)
-- `specs/ui/walkthrough.html` — replayable walkthrough (embedded in docs site)
+**Exit condition:** Human approves all UI/UX artifacts:
+- `specs/ui/screen-map.md` — canonical screen inventory
+- `specs/ui/design-system.md` — design tokens
+- `specs/ui/prototypes/*.html` — interactive wireframes
+- `specs/ui/walkthrough.html` — replayable walkthrough
 - `specs/ui/flow-walkthrough.md` — narrative walkthroughs per FRD
-- `specs/ui/component-inventory.md` — enumeration of every UI component, its props/states, and which screen(s) use it (consumed by test generation and implementation)
-
-**Phase commit:** After human approval, commit per §4: `[phase-2] UI/UX design complete — N screens prototyped`.
+- `specs/ui/component-inventory.md` — all UI components, props, states
 
 **Human gate:** Yes. Present screen map, design system, served prototype URL, walkthrough, and component inventory. Ask for approval.
 
@@ -111,200 +129,215 @@ You operate across 8 phases. Each phase has a clear goal, exit condition, and hu
 
 ---
 
-### Phase 3: Gherkin Generation
+#### Phase 1c: Increment Planning
 
-**Goal:** Every FRD has comprehensive, high-fidelity Gherkin scenarios in `specs/features/*.feature`, **grounded in the approved UI/UX prototypes**.
+**Goal:** All FRDs are broken into ordered **increments** — vertical slices of functionality that can be built, tested, deployed, and verified independently. Each increment leaves the app in a fully working state.
 
-**Entry condition:** Phase 2 approved. UI/UX prototypes finalized.
+**Entry condition:** Phase 1b approved. All FRDs and UI/UX artifacts finalized.
+
+**What is an increment?**
+
+An increment is a cohesive unit of work that:
+- Adds **user-visible functionality** (not just backend plumbing)
+- Can be **deployed independently** (the app works after this increment)
+- Has clear **acceptance criteria** (subset of FRD requirements)
+- Builds on previous increments **without breaking them**
+- Includes all layers: backend routes, frontend pages, tests, and docs
 
 **Tasks:**
-1. Read the **component inventory** (`specs/ui/component-inventory.md`) and **screen map** (`specs/ui/screen-map.md`) — use exact screen names and component names from the prototypes as the vocabulary for Gherkin scenarios (e.g., `When I click the "Add to Cart" button on the "Product Detail" screen`)
-2. For each FRD, generate `.feature` files — reference the approved UI prototypes (`specs/ui/prototypes/`) and flow walkthrough to ensure Gherkin scenarios match the agreed-upon UI flows. Each scenario must trace to a specific screen and interaction path from the prototypes.
-3. Include **UI-specific scenarios**: responsive behavior, navigation flows between screens, component state transitions (loading, empty, error), and accessibility (keyboard navigation, screen reader labels from `browser_snapshot` data)
-4. Self-review each feature file for: coverage (all FRD requirements?), UI grounding (scenarios match prototype screens?), simplicity (scenarios clear?), fidelity (edge cases?), no duplication
-5. Iterate until no gaps remain
+1. **Analyze dependencies** — Read all FRDs and identify which features depend on others (e.g., "data management" depends on "user authentication")
+2. **Define the walking skeleton** — The first increment is always the **walking skeleton**: the minimal set of features that makes the app functional end-to-end. Typically includes: basic layout/navigation, authentication (if required), one core screen with real data flow, health endpoints, and deployment infrastructure. The walking skeleton proves the architecture works.
+3. **Define subsequent increments** — Each increment adds one feature or a cohesive group of related features. Order by dependency chain, then by business value.
+4. **Scope each increment** — For each increment, list:
+   - **ID**: kebab-case identifier (e.g., `walking-skeleton`, `data-management`, `reporting`)
+   - **Name**: human-readable name
+   - **FRD scope**: which FRD requirements (or subset) this increment covers
+   - **Screens**: which screens from the screen map are added or modified
+   - **Flows**: which flows from `flow-walkthrough.md` are exercised
+   - **Dependencies**: which previous increments must be complete
+   - **Acceptance criteria**: specific, testable criteria for "this increment is done"
+5. **Write the increment plan** — Create `specs/increment-plan.md` with the full ordered list of increments, their scope, dependencies, and acceptance criteria.
+6. **Estimate relative complexity** — Tag each increment as `small`, `medium`, or `large` to help the human understand the roadmap.
 
-**Exit condition:** All FRDs have corresponding Gherkin scenarios. Human approves.
+**Increment ordering rules:**
+- Walking skeleton is always first
+- Authentication/authorization before any feature that requires it
+- Core data models before features that consume them
+- Simpler features before complex ones (build confidence early)
+- Features with no dependencies can be parallelized (but default to sequential)
 
-**Phase commit:** After human approval, commit per §4: `[phase-3] Gherkin generation complete — N feature files`.
+**Exit condition:** `specs/increment-plan.md` exists with all increments defined and ordered. Human approves the plan.
 
-**Human gate:** Yes. Present scenario summary per FRD and ask for approval.
+**Phase commit:** After human approval, commit per §4: `[phase-1] Product discovery complete — N FRDs, N screens, N increments planned`.
 
-**Delegate to:** `.github/agents/gherkin-generation.agent.md`
-
-**Parallelism:** Use `/fleet` to generate Gherkin for multiple FRDs in parallel — each FRD is independent.
+**Human gate:** Yes. Present the increment plan with scope, ordering, and dependencies. Ask for approval.
 
 ---
 
-### Phase 4: Test Generation
+### Phase 2: Increment Delivery (Iterative)
 
-**Goal:** Executable test scaffolding exists. All tests compile and fail (red baseline). **Page Object Models and e2e tests are derived from UI prototypes.**
+**Goal:** Deliver each increment through a full development cycle. After each increment, the application is fully working, tested, deployed, and documented.
 
-**Entry condition:** Phase 3 approved. Gherkin scenarios finalized.
+**Entry condition:** Phase 1 approved. Increment plan exists. The orchestrator picks the next increment from `specs/increment-plan.md` based on dependency order.
 
-**Tasks:**
-1. **Generate Page Object Models from prototypes** — read `specs/ui/component-inventory.md` and `specs/ui/screen-map.md` to create POM classes in `e2e/pages/`. Each POM maps 1:1 to a prototype screen, with selectors matching the HTML structure in `specs/ui/prototypes/{screen-name}.html`. This ensures e2e tests interact with the exact UI structure the human approved.
-2. Generate step definitions (unit/integration tests) from Gherkin scenarios — step definitions for UI-related scenarios should reference POMs
-3. Generate Playwright e2e specs (`e2e/*.spec.ts`) from Gherkin scenarios — each spec uses the POMs from step 1, not raw selectors. Navigation flows match the walkthrough in `specs/ui/flow-walkthrough.md`.
-4. Generate Cucumber step definitions that reference UI component names from the component inventory — e.g., `Given the "Product List" screen is displayed` maps to the POM and prototype
-5. Verify all tests compile/parse
-6. Verify all tests fail (no implementation yet — this is the red baseline)
+**Architecture: Per-Increment Development Cycle**
 
-**Exit condition:** All tests compile and all tests fail. No human gate — this is a mechanical step.
+Each increment goes through four steps in sequence:
 
-**Phase commit:** Commit automatically (no human gate): `[phase-4] Test generation complete — red baseline verified`. This commit also populates `state.json` with the full `features[]` array including test file paths, dependency order, and initial `failingTests` — providing all context Phase 5 needs to run in any session.
-
-**Human gate:** No. Proceed automatically once tests compile and fail.
-
-**Delegate to:** `.github/agents/test-generation.agent.md`
-
-**Parallelism:** Use `/fleet` to generate tests for multiple features in parallel.
+```
+For increment N:
+  [Step 1: Tests]  →  [Step 2: Contracts]  →  [Step 3: Implementation]  →  [Step 4: Verify & Ship]
+                                                                                    ↓
+                                                                           main is green + deployed
+                                                                                    ↓
+                                                                           Start increment N+1
+```
 
 ---
 
-### Phase 5: Contract Generation
+#### Step 1: Test Scaffolding
 
-**Goal:** All contracts — API specifications, shared TypeScript types, and infrastructure resource requirements — are defined and agreed upon for every feature **before** any implementation begins. Frontend and backend agents must fully agree on the API contract. Development agents must specify infrastructure resource needs for optimal deployment.
-
-**Entry condition:** Phase 4 complete. Red baseline established. `state.json` contains the full `features[]` array with test file paths, dependency order, and failing test details.
-
-**Architecture: Three Contract Types**
-
-Contracts are the stable bridge between independent implementation slices. They must be finalized for **all features** before any feature enters implementation.
-
-```
-Per feature:
-  [Gherkin + Tests] → [API Contract] + [Shared Types] + [Infra Contract]
-
-All features:
-  All contracts finalized → Human gate → Implementation begins
-```
-
-**Contract types:**
-
-1. **API contracts** (`specs/contracts/api/{feature}.yaml`): OpenAPI-style endpoint specifications derived from Gherkin scenarios and test files. Each contract defines:
-   - Endpoint paths, HTTP methods, and route parameters
-   - Request body schemas (with required/optional fields and validation rules)
-   - Response body schemas (success and error shapes)
-   - Authentication/authorization requirements
-   - Status codes and error responses
-
-2. **Shared types** (`src/shared/types/{feature}.ts`): TypeScript interfaces and types extracted from the API contracts. These are the compile-time bridge between API and Web slices:
-   - Request/response DTOs
-   - Entity models shared across frontend and backend
-   - Enum types and constants
-   - Component prop types derived from response shapes
-
-3. **Infrastructure contracts** (`specs/contracts/infra/resources.yaml`): Resource specifications that the development agents produce to inform the deployment agent. Each entry defines:
-   - Azure resource type (e.g., Container App, Container Registry, Log Analytics)
-   - SKU/tier recommendation with justification
-   - Scaling configuration (min/max replicas, CPU/memory)
-   - Environment variables and secrets the resource requires
-   - Dependencies between resources
-   - Networking requirements (ingress, CORS, internal-only)
+**Goal:** All tests for THIS increment exist, compile, and fail (red baseline). This includes E2E flows, Gherkin scenarios, Cucumber step definitions, and Vitest unit tests — but ONLY for the scope of the current increment.
 
 **Tasks:**
-1. For each feature, extract API contracts from Gherkin scenarios + test files — endpoint signatures, request/response shapes, validation rules, error responses
-2. For each feature, generate shared TypeScript types from the API contracts
-3. Aggregate infrastructure needs across all features and produce the infrastructure contract
-4. Self-review all contracts for: completeness (all endpoints covered?), consistency (types match across features?), feasibility (infrastructure requirements realistic?)
-5. Cross-validate: API contracts match test expectations, shared types compile, infrastructure contract covers all services
 
-**Contract dependencies:**
-```
-Gherkin + Tests → API contracts  (API contracts derived from behavioral specs)
-API contracts → Shared types     (types generated from API contracts)
-All features → Infra contract    (infra aggregated across all features)
-```
+**1a. E2E tests** (from flow walkthrough):
+1. Read the increment's scope — which flows from `specs/ui/flow-walkthrough.md` are covered
+2. Generate/update Page Object Models in `e2e/pages/` for screens added by this increment
+3. Generate Playwright e2e specs (`e2e/*.spec.ts`) that exercise this increment's user flows end-to-end
+4. E2E tests run against the Aspire environment
 
-**Exit condition:** All API contracts, shared types, and infrastructure contracts are defined. Shared types compile. Human approves.
+**1b. Gherkin scenarios** (from FRDs):
+1. Read the increment's FRD scope — which acceptance criteria are covered
+2. Generate `.feature` files in `specs/features/` for this increment's scenarios
+3. Use screen/component names from the UI prototypes as Gherkin vocabulary
 
-**Phase commit:** After human approval, commit per §4: `[phase-5] Contract generation complete — N API contracts, N shared type files, infra contract`.
+**1c. BDD test scaffolding** (from Gherkin):
+1. Generate Cucumber step definitions (`tests/features/step-definitions/`) from the Gherkin scenarios
+2. Generate Vitest unit tests (`src/api/tests/`) for API-related scenarios
+3. Cucumber step definitions reuse POMs from `e2e/pages/`
+4. Cucumber tests run against the Aspire environment
 
-**Human gate:** Yes. Present all contracts with a summary per feature: endpoints, type counts, and infrastructure resources. Ask human to approve before implementation begins.
+**1d. Red baseline verification:**
+1. All new tests compile/parse
+2. All new tests fail (no implementation exists for this increment)
+3. All EXISTING tests from previous increments still pass (regression)
+
+**Human gate:** Yes — after Gherkin generation (1b). E2E and BDD test scaffolding proceed automatically.
+
+**Delegate to:**
+- 1a: `.github/agents/e2e-generation.agent.md`
+- 1b: `.github/agents/gherkin-generation.agent.md`
+- 1c: `.github/agents/test-generation.agent.md`
+
+**Commit:** `[increment] {id}/tests — test scaffolding complete`
+
+---
+
+#### Step 2: Contract Generation
+
+**Goal:** API contracts and shared TypeScript types are defined for THIS increment's new or modified endpoints. Contracts extend (not replace) those from previous increments.
+
+**Tasks:**
+1. For each feature in this increment, extract API contracts from Gherkin scenarios + test files
+2. Generate shared TypeScript types from the API contracts (`src/shared/types/`)
+3. Update the infrastructure contract if this increment requires new Azure resources
+4. Verify shared types compile alongside existing types from previous increments
+5. Cross-validate: contracts match test expectations, types compile, no conflicts with existing contracts
+
+**Exit condition:** Contracts defined, shared types compile, no conflicts with existing code.
+
+**Human gate:** No — contracts are derived mechanically from tests. Proceed automatically.
 
 **Delegate to:** `.github/agents/contract-generation.agent.md`
 
-**Parallelism:** Use `/fleet` to generate API contracts and shared types for multiple features in parallel — each feature is independent. Infrastructure contract generation is sequential (aggregates across all features).
+**Commit:** `[increment] {id}/contracts — contracts generated`
 
 ---
 
-### Phase 6: Implementation
+#### Step 3: Implementation
 
-**Goal:** All tests pass — unit, Gherkin step definitions, Playwright e2e.
+**Goal:** All tests pass — unit, Gherkin, Playwright e2e — for this increment AND all previous increments (full regression).
 
-**Entry condition:** Phase 5 approved. All contracts finalized. `state.json` contains the full `features[]` array with test file paths, dependency order, failing test details, and contract output files — enough context for any session to drive the implementation loop.
+**Entry condition:** Step 2 complete. Contracts in place.
 
-**Step 0: Research & Discovery (mandatory)**
+**Step 3.0: Research & Discovery (mandatory)**
+Before writing implementation code, invoke the `research-best-practices` skill. Inventory technologies needed, query MCP tools for current best practices, verify dependency versions.
 
-Before writing any implementation code, invoke the `research-best-practices` skill (`.github/skills/research-best-practices/`). For each feature:
+**Step 3.0b: TypeScript LSP Setup (once per session)**
+Verify TypeScript Language Server is active. Use `ide-get_diagnostics` after every code change to catch type errors before running tests.
 
-1. Inventory the technologies, SDKs, and Azure services required by its contracts
-2. Query MCP tools for current best practices and latest APIs (see §12 for tool details)
-3. Check `.github/skills/` for existing skills that cover the task
-4. Verify `package.json` dependency versions are current
-5. Record findings in `state.json` under the feature's metadata
-
-This step prevents stale-knowledge bugs, deprecated API usage, and reinventing patterns that already have a skill. It runs once per feature and results carry forward to all slices.
-
-**Architecture: Contract-Driven Parallel Slices**
-
-Contracts from Phase 5 are the stable foundation. Each feature is implemented as three slices that maximize parallelism:
+**Architecture: Parallel Slices (within the increment)**
 
 ```
-Per feature:
-  [Contracts (from Phase 5)] ──┬──> [API Slice]  ──┬──> [Integration Slice]
-                               └──> [Web Slice]  ──┘
-
-Across features (when independent):
-  Feature A: [API ∥ Web] → [Integration]
-  Feature B: [API ∥ Web] → [Integration]   ← parallel with A if no dependency
+[Contracts] ──┬──> [API Slice]  ──┬──> [Integration Slice]
+              └──> [Web Slice]  ──┘
 ```
 
-**Tasks (per feature, using slices):**
-1. **API slice:** Implement backend routes, services, and models **against the API contracts and shared types from Phase 5**. Run unit tests (Vitest + Supertest) and Cucumber step definitions until green. No browser or frontend needed.
-2. **Web slice:** Implement frontend pages, components, and client logic **against the shared types from Phase 5 and the UI prototypes from Phase 2**. The approved HTML wireframes in `specs/ui/prototypes/` are the visual specification — extract component structure, layout patterns, and interaction behavior from them. Reference `specs/ui/design-system.md` for tokens and `specs/ui/component-inventory.md` for component props/states. Run component/build tests until green. Can mock API calls using the contract types. No running API server needed.
-3. **Integration slice:** Wire API + Web together. Start dev servers, run Playwright e2e tests for this feature until green. This slice is sequential — it waits for both API and Web slices to complete.
-4. **Regression check:** After all features complete their integration slices, run the full test suite (all unit + Gherkin + Playwright) to catch cross-feature conflicts.
+**Tasks:**
+1. **API slice:** Implement backend routes, services, and models for this increment. Run unit tests (Vitest + Supertest) until green.
+2. **Web slice:** Implement frontend pages and components for this increment, referencing the UI prototypes and design system. Run build tests until green. Can mock API calls.
+3. **Integration slice:** Wire API + Web together via **Aspire environment**. Replace mocks with real API calls. Run Cucumber + Playwright e2e tests until green.
+4. **Regression check:** Run the FULL test suite — all tests from all completed increments plus this one. Everything must be green.
 
-**Slice-level parallelism rules:**
-- API slice and Web slice for the **same feature** MAY run in parallel — they share no source files, only the contract types from Phase 5.
-- API slices across **independent features** MAY run in parallel.
-- Integration slices are always sequential per feature (require both API + Web slices done).
-- The regression check runs once after all features are integrated.
+**Slice-level parallelism:** API and Web slices MAY run in parallel. Integration is sequential after both.
 
-**Resumability:** This phase is fully resumable from `state.json`. On session start, the agent reads `features[]` and each feature's `slices` object to determine which slices are `"done"`, `"in-progress"`, or `"pending"`. It resumes at the current slice for the current feature. Mid-slice commits ensure progress is never lost.
+**Commit (per slice):** `[impl] {increment-id}/{slice} — slice green`
+**Commit (after regression):** `[impl] {increment-id} — all tests green`
 
-**Exit condition:** Full test suite is green. Documentation generated via `npm run docs:generate`.
-
-**Phase commit:** After human approval, commit per §4: `[phase-6] Implementation complete — all tests green`. Mid-phase commits per slice: `[impl] {feature-id}/{slice} — slice green`.
-
-**Human gate:** Yes. Create a PR and ask human to review before deployment. Include the generated documentation site link.
+**Human gate:** Yes. Create a PR and ask human to review before deployment.
 
 **Delegate to:** `.github/agents/implementation.agent.md`
 
-**Parallelism:** Two levels — (1) use `/fleet` to implement independent features in parallel, and (2) within each feature, API and Web slices run in parallel against the shared contracts from Phase 5. Integration slices are always sequential.
+---
+
+#### Step 4: Verify & Ship
+
+**Goal:** The increment is deployed to Azure, smoke tests pass, documentation is regenerated, and `main` is green. The application is fully working in production with the new increment's functionality.
+
+**Entry condition:** Step 3 approved (PR merged). All tests green.
+
+**Tasks:**
+1. **Full regression** — Run the complete test suite one final time after PR merge:
+   ```
+   cd src/api && npm test          # All unit tests
+   npx cucumber-js                 # All Cucumber scenarios
+   npx playwright test             # All Playwright e2e tests
+   ```
+2. **Deploy to Azure** — Run `azd provision` (if infra changes) and `azd deploy`
+3. **Smoke tests** — Run smoke tests against the live deployment: `npx playwright test --grep @smoke`
+4. **Documentation** — Regenerate the documentation site: `npm run docs:generate`
+5. **Verify docs** — Confirm the docs site builds and includes the new increment's features
+
+**Exit condition:** All tests pass locally, deployment is live, smoke tests pass against deployment, docs are generated.
+
+**Commit:** `[increment] {id} — delivered`
+
+**Human gate:** Yes. Present:
+- Deployment URL
+- Smoke test results
+- Test suite summary (pass/fail counts)
+- New functionality added by this increment
+- Documentation site link
+
+Ask: "Increment `{id}` is delivered. Approve to proceed to the next increment, or provide feedback."
+
+**Delegate to:** `.github/agents/deploy.agent.md`
 
 ---
 
-### Phase 7: Deployment
+#### After All Increments
 
-**Goal:** Application deployed to Azure via AZD. Smoke tests pass against the live deployment.
+When all increments in `specs/increment-plan.md` are delivered:
 
-**Entry condition:** Phase 6 approved (PR merged). Infrastructure contract from Phase 5 guides resource provisioning.
+1. Run the full test suite one final time
+2. Verify the production deployment includes all features
+3. Generate final documentation
+4. Present the complete product to the human
 
-**Tasks:**
-1. Run `azd provision` using the infrastructure contract from Phase 5 as guidance for resource configuration — if it fails, diagnose, fix infra, retry
-2. Run `azd deploy` — if it fails, diagnose, fix config, retry
-3. Run smoke tests against the deployed app — if they fail, diagnose, fix, redeploy
+**Commit:** `[release] All increments delivered — product complete`
 
-**Exit condition:** Smoke tests pass against the live deployment.
-
-**Phase commit:** After human approval, commit per §4: `[phase-7] Deployment complete — smoke tests pass`.
-
-**Human gate:** Yes. Present deployment URL and smoke test results. Ask human to confirm.
-
-**Delegate to:** `.github/agents/deploy.agent.md`
+**Human gate:** Yes. Present the full product with all features, test results, and deployment URL.
 
 ---
 
@@ -316,14 +349,14 @@ State lives in `.spec2cloud/state.json`. You read it at the start of every loop 
 
 At the **start of every loop iteration**:
 1. Read `.spec2cloud/state.json`
-2. Parse `currentPhase` to determine where you are
-3. Parse `phaseState` to determine what's been done and what's next
+2. Parse `currentPhase` to determine where you are (setup, discovery, or increment-delivery)
+3. If in `increment-delivery`, parse `currentIncrement` and its `steps` to determine what's been done and what's next
 4. Parse `humanGates` to check which approvals have been granted
 
 ### Writing State
 
 At the **end of every loop iteration**:
-1. Update `phaseState` with the result of the task you just executed
+1. Update the relevant section with the result of the task you just executed
 2. Update `lastUpdated` to the current ISO timestamp
 3. Write the updated state back to `.spec2cloud/state.json`
 
@@ -331,237 +364,195 @@ At the **end of every loop iteration**:
 
 ```json
 {
-  "currentPhase": "implementation",
-  "phaseState": {
-    "contracts": {
-      "api": {
-        "user-auth": { "status": "done", "specFile": "specs/contracts/api/user-auth.yaml" },
-        "notifications": { "status": "done", "specFile": "specs/contracts/api/notifications.yaml" },
-        "dashboard": { "status": "done", "specFile": "specs/contracts/api/dashboard.yaml" }
-      },
-      "sharedTypes": {
-        "user-auth": { "status": "done", "outputFiles": ["src/shared/types/auth.ts"] },
-        "notifications": { "status": "done", "outputFiles": ["src/shared/types/notifications.ts"] },
-        "dashboard": { "status": "done", "outputFiles": ["src/shared/types/dashboard.ts"] }
-      },
-      "infra": { "status": "done", "specFile": "specs/contracts/infra/resources.yaml" }
+  "currentPhase": "increment-delivery",
+  "productDiscovery": {
+    "specRefinement": { "status": "done", "frdCount": 5 },
+    "uiuxDesign": { "status": "done", "screenCount": 12 },
+    "incrementPlanning": { "status": "done", "incrementCount": 4 }
+  },
+  "incrementPlan": [
+    {
+      "id": "walking-skeleton",
+      "name": "Walking Skeleton",
+      "scope": ["Basic layout", "Auth flow", "Landing page", "Health endpoints"],
+      "frdScope": ["specs/frd-auth.md (login/logout only)", "specs/frd-layout.md"],
+      "screens": ["landing", "login", "dashboard-shell"],
+      "dependsOn": [],
+      "complexity": "medium"
     },
-    "features": [
-      {
-        "id": "user-auth",
-        "frd": "specs/frd-auth.md",
-        "status": "done",
-        "dependsOn": [],
-        "slices": {
-          "api": {
-            "status": "done",
-            "testFiles": ["src/api/tests/unit/auth.test.ts"],
-            "modifiedFiles": ["src/api/src/routes/auth.ts", "src/api/src/services/auth-service.ts"],
-            "failingTests": [],
-            "lastTestRun": { "pass": 12, "fail": 0 },
-            "iteration": 2
-          },
-          "web": {
-            "status": "done",
-            "testFiles": ["src/web/tests/auth.test.ts"],
-            "modifiedFiles": ["src/web/src/app/login/page.tsx"],
-            "failingTests": [],
-            "lastTestRun": { "pass": 4, "fail": 0 },
-            "iteration": 1
-          },
-          "integration": {
-            "status": "done",
-            "testFiles": {
-              "cucumber": ["tests/features/step-definitions/auth.steps.ts"],
-              "playwright": ["e2e/auth.spec.ts"]
-            },
-            "failingTests": [],
-            "lastTestRun": { "cucumber": { "pass": 6, "fail": 0 }, "playwright": { "pass": 3, "fail": 0 } },
-            "iteration": 1
+    {
+      "id": "data-management",
+      "name": "Data Management",
+      "scope": ["Create/edit/delete records", "Record list view"],
+      "frdScope": ["specs/frd-data-management.md (CRUD only)"],
+      "screens": ["record-list", "record-editor"],
+      "dependsOn": ["walking-skeleton"],
+      "complexity": "large"
+    },
+    {
+      "id": "reporting",
+      "name": "Reporting & Analytics",
+      "scope": ["Generate reports", "Data visualization", "Export"],
+      "frdScope": ["specs/frd-reporting.md"],
+      "screens": ["report-dashboard", "report-detail"],
+      "dependsOn": ["data-management"],
+      "complexity": "large"
+    }
+  ],
+  "currentIncrement": "data-management",
+  "increments": {
+    "walking-skeleton": {
+      "status": "done",
+      "steps": {
+        "tests": {
+          "status": "done",
+          "e2eSpecs": ["e2e/auth-flow.spec.ts", "e2e/landing.spec.ts"],
+          "gherkinFiles": ["specs/features/auth.feature", "specs/features/layout.feature"],
+          "cucumberSteps": ["tests/features/step-definitions/auth.steps.ts"],
+          "vitestFiles": ["src/api/tests/unit/auth.test.ts"]
+        },
+        "contracts": {
+          "status": "done",
+          "apiContracts": ["specs/contracts/api/auth.yaml"],
+          "sharedTypes": ["src/shared/types/auth.ts"],
+          "infraUpdated": true
+        },
+        "implementation": {
+          "status": "done",
+          "slices": {
+            "api": { "status": "done", "modifiedFiles": ["src/api/src/routes/auth.ts"], "lastTestRun": { "pass": 8, "fail": 0 } },
+            "web": { "status": "done", "modifiedFiles": ["src/web/src/app/login/page.tsx"], "lastTestRun": { "pass": 4, "fail": 0 } },
+            "integration": { "status": "done", "lastTestRun": { "cucumber": { "pass": 6, "fail": 0 }, "playwright": { "pass": 3, "fail": 0 } } }
           }
         },
-        "failingTests": [],
-        "iteration": 3
-      },
-      {
-        "id": "notifications",
-        "frd": "specs/frd-notifications.md",
-        "status": "in-progress",
-        "dependsOn": ["user-auth"],
-        "slices": {
-          "api": {
-            "status": "in-progress",
-            "testFiles": ["src/api/tests/unit/notifications.test.ts"],
-            "modifiedFiles": ["src/api/src/routes/notifications.ts"],
-            "failingTests": [
-              { "name": "should mark notification as read", "file": "src/api/tests/unit/notifications.test.ts", "error": "Expected status 200, received 404" }
-            ],
-            "lastTestRun": { "pass": 5, "fail": 2 },
-            "iteration": 2
-          },
-          "web": {
-            "status": "pending",
-            "testFiles": ["src/web/tests/notifications.test.ts"],
-            "modifiedFiles": [],
-            "failingTests": [],
-            "lastTestRun": null,
-            "iteration": 0
-          },
-          "integration": {
-            "status": "pending",
-            "testFiles": {
-              "cucumber": ["tests/features/step-definitions/notifications.steps.ts"],
-              "playwright": ["e2e/notifications.spec.ts"]
-            },
-            "failingTests": [],
-            "lastTestRun": null,
-            "iteration": 0
-          }
-        },
-        "failingTests": [
-          { "name": "should mark notification as read", "file": "src/api/tests/unit/notifications.test.ts", "error": "Expected status 200, received 404" }
-        ],
-        "iteration": 2
-      },
-      {
-        "id": "dashboard",
-        "frd": "specs/frd-dashboard.md",
-        "status": "pending",
-        "dependsOn": ["user-auth", "notifications"],
-        "slices": {
-          "api": { "status": "pending", "testFiles": ["src/api/tests/unit/dashboard.test.ts"], "modifiedFiles": [], "failingTests": [], "lastTestRun": null, "iteration": 0 },
-          "web": { "status": "pending", "testFiles": ["src/web/tests/dashboard.test.ts"], "modifiedFiles": [], "failingTests": [], "lastTestRun": null, "iteration": 0 },
-          "integration": { "status": "pending", "testFiles": { "cucumber": ["tests/features/step-definitions/dashboard.steps.ts"], "playwright": ["e2e/dashboard.spec.ts"] }, "failingTests": [], "lastTestRun": null, "iteration": 0 }
-        },
-        "failingTests": [],
-        "iteration": 0
+        "verification": {
+          "status": "done",
+          "regression": { "unit": { "pass": 12, "fail": 0 }, "cucumber": { "pass": 6, "fail": 0 }, "playwright": { "pass": 3, "fail": 0 } },
+          "deployment": { "status": "done", "url": "https://myapp-abc123.azurecontainerapps.io" },
+          "smokeTests": { "pass": 2, "fail": 0 },
+          "docs": { "status": "done" }
+        }
       }
-    ],
-    "currentFeature": "notifications",
-    "testsStatus": {
-      "unit": { "pass": 17, "fail": 2 },
-      "cucumber": { "pass": 8, "fail": 1 },
-      "playwright": { "pass": 4, "fail": 2 }
+    },
+    "data-management": {
+      "status": "in-progress",
+      "steps": {
+        "tests": { "status": "done" },
+        "contracts": { "status": "done" },
+        "implementation": {
+          "status": "in-progress",
+          "slices": {
+            "api": {
+              "status": "in-progress",
+              "modifiedFiles": ["src/api/src/routes/records.ts"],
+              "failingTests": [{ "name": "should create record", "file": "src/api/tests/unit/records.test.ts", "error": "Expected 201, got 404" }],
+              "lastTestRun": { "pass": 5, "fail": 2 },
+              "iteration": 2
+            },
+            "web": { "status": "pending" },
+            "integration": { "status": "pending" }
+          }
+        },
+        "verification": { "status": "pending" }
+      }
     }
   },
   "humanGates": {
-    "phase0-approved": false,
-    "prd-approved": false,
-    "frd-approved": false,
-    "uiux-approved": false,
-    "gherkin-approved": false,
-    "contracts-approved": false,
-    "implementation-approved": false,
-    "deployment-approved": false
+    "phase0-approved": true,
+    "discovery-specs-approved": true,
+    "discovery-uiux-approved": true,
+    "discovery-plan-approved": true,
+    "increment-walking-skeleton-tests-gherkin-approved": true,
+    "increment-walking-skeleton-impl-approved": true,
+    "increment-walking-skeleton-shipped": true,
+    "increment-data-management-tests-gherkin-approved": true,
+    "increment-data-management-impl-approved": false,
+    "increment-data-management-shipped": false
+  },
+  "testsStatus": {
+    "unit": { "pass": 17, "fail": 2 },
+    "cucumber": { "pass": 6, "fail": 0 },
+    "playwright": { "pass": 3, "fail": 0 }
   },
   "lastUpdated": "2026-02-09T14:30:00Z"
 }
 ```
 
-#### Contracts Object Fields
-
-The `contracts` object in `phaseState` tracks the output of Phase 5 (Contract Generation).
+#### Increment Object Fields
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `api` | object | Map of feature IDs to API contract status: `{ status, specFile }`. |
-| `sharedTypes` | object | Map of feature IDs to shared type generation status: `{ status, outputFiles }`. |
-| `infra` | object | Infrastructure contract status: `{ status, specFile }`. |
+| `status` | `"pending"` \| `"in-progress"` \| `"done"` | Overall increment delivery status. `"done"` only when Step 4 (Verify & Ship) completes. |
+| `steps` | object | Per-step status tracking: `tests`, `contracts`, `implementation`, `verification`. |
 
-#### Feature Object Fields
+#### Step Object Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | string | Feature identifier (matches FRD name). |
-| `frd` | string | Path to the FRD spec file. |
-| `status` | `"pending"` \| `"in-progress"` \| `"done"` | Overall feature implementation status. `"done"` only when all slices are done. |
-| `dependsOn` | string[] | Feature IDs that must be `"done"` before this feature starts. |
-| `slices` | object | Per-slice status tracking (see Slice Object Fields below). |
-| `failingTests` | array | Aggregate of all failing tests across slices: `{ name, file, error }`. Empty when all pass. |
-| `iteration` | number | Total TDD loop iteration count across all slices. |
+| Step | Key Fields | Description |
+|------|-----------|-------------|
+| `tests` | `e2eSpecs`, `gherkinFiles`, `cucumberSteps`, `vitestFiles` | Files generated for this increment's test scaffolding. |
+| `contracts` | `apiContracts`, `sharedTypes`, `infraUpdated` | Contract artifacts for this increment. |
+| `implementation` | `slices` (api, web, integration) | Per-slice tracking with `modifiedFiles`, `failingTests`, `lastTestRun`, `iteration`. |
+| `verification` | `regression`, `deployment`, `smokeTests`, `docs` | Full regression results, deployment URL, smoke test results, docs status. |
 
-#### Slice Object Fields
-
-Each feature contains three implementation slices: `api`, `web`, `integration`. Contract generation is handled in Phase 5 and tracked in the `contracts` object above.
-
-| Field | Type | Slices | Description |
-|-------|------|--------|-------------|
-| `status` | `"pending"` \| `"in-progress"` \| `"done"` | All | Slice implementation status. |
-| `testFiles` | string[] or object | `api`, `web`, `integration` | Test file paths. Integration uses `{ cucumber, playwright }` sub-object. |
-| `modifiedFiles` | string[] | `api`, `web` | Source files created or modified in this slice. |
-| `failingTests` | array | `api`, `web`, `integration` | Currently failing tests for this slice. |
-| `lastTestRun` | object \| null | `api`, `web`, `integration` | Pass/fail counts from the most recent test run. |
-| `iteration` | number | `api`, `web`, `integration` | TDD loop iteration count for this slice. |
-
-#### Slice Dependencies
+#### Slice Dependencies (within implementation)
 
 ```
-Phase 5 contracts → api  (api slice reads contract types from Phase 5)
-Phase 5 contracts → web  (web slice reads contract types from Phase 5)
+Contracts → api  (api slice reads contract types)
+Contracts → web  (web slice reads contract types)
 api + web → integration  (integration requires both slices done)
+integration → verification  (verify requires all slices green)
 ```
-
-`api` and `web` slices have no dependency on each other — they can execute in parallel. Both depend on contracts from Phase 5.
 
 ### On Resume
 
 1. Read `.spec2cloud/state.json`
-2. Re-validate by running the test suite for the current phase
-3. If test results match state → continue from where you left off
-4. If test results differ → update state to reflect reality, then continue
+2. Determine current increment and current step within it
+3. Re-validate by running the appropriate test suite:
+   - Tests step: verify test files exist and compile
+   - Implementation step: run tests for the current slice, compare to state
+   - Verification step: check deployment status
+4. If results match state → continue from where you left off
+5. If results differ → update state to reflect reality, then continue
 
 ---
 
-## 4. Phase Commit Protocol
+## 4. Commit Protocol
 
-At the **exit of every phase**, create a single commit that bundles all artifacts produced during that phase. This gives a clean checkpoint per phase in `git log`.
+At key checkpoints, create commits that bundle artifacts produced. This gives a clean, resumable history in `git log`.
 
 ### Commit Procedure
 
-After a phase's exit condition is met (and human gate approved, where applicable):
+After a step or phase completes (and human gate approved, where applicable):
 
 ```
 1. Stage all changes:
      git add -A
-2. Commit with a phase-tagged message:
-     git commit -m "[phase-N] {phase name} complete"
-3. Update state.json to reflect the new currentPhase.
-4. Append a phase-transition entry to audit.log.
+2. Commit with an appropriate tag (see table below).
+3. Update state.json to reflect the new state.
+4. Append an entry to audit.log.
 5. Commit the state update:
-     git add .spec2cloud/ && git commit -m "spec2cloud: transition to phase {N+1}"
+     git add .spec2cloud/ && git commit -m "spec2cloud: state update"
 ```
 
-### Phase Commit Messages
+### Commit Messages
 
-| Phase | Commit Message |
+| Event | Commit Message |
 |-------|---------------|
-| Phase 0 | `[phase-0] Shell setup complete` |
-| Phase 1 | `[phase-1] Spec refinement complete — N FRDs approved` |
-| Phase 2 | `[phase-2] UI/UX design complete — N screens prototyped` |
-| Phase 3 | `[phase-3] Gherkin generation complete — N feature files` |
-| Phase 4 | `[phase-4] Test generation complete — red baseline verified` |
-| Phase 5 | `[phase-5] Contract generation complete — N API contracts, N shared type files, infra contract` |
-| Phase 6 | `[phase-6] Implementation complete — all tests green` |
-| Phase 7 | `[phase-7] Deployment complete — smoke tests pass` |
+| Shell setup | `[phase-0] Shell setup complete` |
+| Product discovery | `[phase-1] Product discovery complete — N FRDs, N screens, N increments` |
+| Increment tests | `[increment] {id}/tests — test scaffolding complete` |
+| Increment contracts | `[increment] {id}/contracts — contracts generated` |
+| Increment slice | `[impl] {id}/{slice} — slice green` |
+| Increment all tests green | `[impl] {id} — all tests green` |
+| Increment delivered | `[increment] {id} — delivered` |
+| All increments complete | `[release] All increments delivered — product complete` |
 
-### Why Two Commits
+### Why Increment-Level Commits
 
-The phase artifacts commit and the state transition commit are separate so that:
-- `git log --oneline --grep="\[phase-"` shows a clean timeline of phase completions
-- The state commit is mechanical and always follows the same pattern
-- If you need to reset a phase, you can revert the state commit without losing artifacts
-
-### Mid-Phase Commits (Implementation Only)
-
-During Phase 6, the implementation agent commits after each **slice** completes:
-```
-git add -A && git commit -m "[impl] {feature-id}/{slice} — slice green"
-```
-And after all slices for a feature are integrated:
-```
-git add -A && git commit -m "[impl] {feature-id} — all tests green"
-```
-These mid-phase commits create resumable checkpoints at slice granularity. If a session dies, the next session reads `state.json` and resumes from the last committed slice.
+Each increment is a self-contained delivery. Commits at increment boundaries mean:
+- `git log --oneline --grep="\[increment\]"` shows the delivery timeline
+- Each delivered increment is a revertable, deployable unit
+- Mid-increment commits at slice granularity create resumable checkpoints
 
 ---
 
@@ -579,18 +570,18 @@ Append every significant action to `.spec2cloud/audit.log`. Never overwrite — 
 
 **Every task execution:**
 ```
-[2026-02-09T14:15:00Z] phase=implementation feature=user-auth iteration=1 action=write-code result=tests-3pass-2fail
+[2026-02-09T14:15:00Z] increment=data-management step=implementation slice=api iteration=1 action=write-code result=tests-3pass-2fail
 ```
 
-**Every phase transition:**
+**Every increment transition:**
 ```
-[2026-02-09T14:30:00Z] phase=gherkin action=phase-complete result=transition-to-test-generation
+[2026-02-09T14:30:00Z] increment=walking-skeleton action=increment-delivered result=transition-to-data-management
 ```
 
 **Every human gate event:**
 ```
-[2026-02-09T14:35:00Z] phase=gherkin action=human-gate result=approved
-[2026-02-09T14:35:00Z] phase=spec-refinement action=human-gate result=rejected feedback="missing error states for auth"
+[2026-02-09T14:35:00Z] increment=data-management step=tests action=human-gate result=gherkin-approved
+[2026-02-09T14:35:00Z] phase=discovery step=specs action=human-gate result=rejected feedback="missing error states for auth"
 ```
 
 **Every error:**
@@ -602,20 +593,27 @@ Append every significant action to `.spec2cloud/audit.log`. Never overwrite — 
 
 ## 6. Human Gate Protocol
 
-Human gates exist at the exit of Phases 0, 1, 2, 3, 5, 6, and 7. Phase 4 has no human gate.
+Human gates exist at these points:
+- Phase 0 exit (shell setup approval)
+- Phase 1a exit (FRD approval)
+- Phase 1b exit (UI/UX approval)
+- Phase 1c exit (increment plan approval)
+- Phase 2, Step 1 mid-point (Gherkin approval, per increment)
+- Phase 2, Step 3 exit (implementation PR review, per increment)
+- Phase 2, Step 4 exit (deployment verification, per increment)
 
 ### How to Pause
 
 When you reach a human gate:
 
-1. **Summarize what was done.** Present a concise summary of the phase:
+1. **Summarize what was done.** Present a concise summary:
    - Phase 0: List all generated/verified files and scaffolding
-   - Phase 1: List all FRDs with their key decisions and open questions
-   - Phase 2: List screen map, design system, and prototype links per FRD
-   - Phase 3: List all `.feature` files with scenario counts per FRD
-   - Phase 5: List all API contracts, shared type files, and infrastructure contract with endpoint/resource counts per feature
-   - Phase 6: Link to the PR, list test results (pass/fail counts)
-   - Phase 7: Deployment URL, smoke test results
+   - Phase 1a: List all FRDs with their key decisions
+   - Phase 1b: List screen map, design system, and prototype links per FRD
+   - Phase 1c: List the increment plan with ordering, scope, and dependencies
+   - Step 1 (per increment): List Gherkin scenario counts, e2e flow coverage
+   - Step 3 (per increment): Link to the PR, list test results (pass/fail counts)
+   - Step 4 (per increment): Deployment URL, smoke test results, docs status
 
 2. **State what's next.** Tell the human what the next phase will do.
 
@@ -661,30 +659,26 @@ You delegate work to sub-agents defined in `.github/agents/*.agent.md`. You rema
 
 Use `/fleet` when tasks are independent and can run simultaneously:
 
-| Phase | Parallel Tasks | Condition |
-|-------|---------------|-----------|
-| Phase 3 | Generate Gherkin for multiple FRDs | Each FRD is independent |
-| Phase 4 | Generate tests for multiple features | Each feature's tests are independent |
-| Phase 5 | Generate API contracts and shared types for multiple features | Each feature's contracts are independent |
-| Phase 6 (cross-feature) | Implement multiple features | Only if features have no shared dependencies |
-| Phase 6 (intra-feature) | API slice + Web slice for a single feature | Always — slices share only contract types, not source files |
+| Context | Parallel Tasks | Condition |
+|---------|---------------|-----------|
+| Step 1 (per increment) | Generate e2e specs for multiple flows | Each flow is independent |
+| Step 1 (per increment) | Generate Gherkin for multiple FRD scopes | Each scope is independent |
+| Step 1 (per increment) | Generate BDD tests for multiple features | Each feature's tests are independent |
+| Step 3 (per increment) | API slice + Web slice | Always — slices share only contract types, not source files |
 
 **Rules for parallel execution:**
-- API and Web slices within a feature MAY always run in parallel — they share contract types but not source files
-- Independent features MAY run in parallel — each feature's slices are scoped to their own files
-- Integration slices are sequential — they require both API and Web slices to be complete
-- After all features' integration slices complete, the orchestrator runs the full test suite to verify no conflicts
-- If conflicts are found, resolve them sequentially
+- API and Web slices within an increment MAY always run in parallel
+- Integration slice is sequential — requires both API and Web slices complete
+- After integration, verification (Step 4) runs full regression sequentially
+- Different increments are ALWAYS sequential (each builds on the previous)
 
 ### When NOT to Use `/fleet`
 
 - Phase 0: Sequential analysis and scaffolding
 - Phase 1: Interactive with human — sequential by nature
-- Phase 2: Interactive with human — sequential prototyping and review
-- Phase 5 infrastructure contract: Aggregates across all features — sequential by nature
-- Phase 6 integration slices: Require both API + Web slices done — sequential by nature
-- Phase 7: Sequential deployment pipeline (provision → deploy → smoke)
-- Any time features share dependencies (shared models, shared APIs, shared UI components)
+- Integration slices: Require both API + Web slices done — sequential by nature
+- Step 4 (Verify & Ship): Sequential pipeline (regression → deploy → smoke → docs)
+- Across increments: Always sequential — each depends on the previous
 
 ---
 
@@ -699,16 +693,18 @@ On every CLI session start, check for existing state.
    - If it exists → read it and resume
 
 2. **Read state and determine position.**
-   - Parse `currentPhase` and `phaseState`
+   - Parse `currentPhase` — are we in setup, discovery, or increment-delivery?
+   - If in `increment-delivery`, parse `currentIncrement` and find the current step
    - Identify what was last completed and what's next
 
 3. **Re-validate.**
-   - Run the test suite appropriate for the current phase:
-     - Phase 2: verify prototype HTML files exist in specs/ui/prototypes/
-     - Phase 4: verify tests compile and fail
-     - Phase 5: verify contract files exist and shared types compile
-     - Phase 6: run full test suite, compare results to `testsStatus` in state
-     - Phase 7: check deployment status
+   - Run the test suite appropriate for the current position:
+     - Phase 1b: verify prototype HTML files exist in specs/ui/prototypes/
+     - Phase 1c: verify `specs/increment-plan.md` exists
+     - Step 1 (tests): verify test files exist and compile
+     - Step 2 (contracts): verify contract files exist and shared types compile
+     - Step 3 (implementation): run test suite for current slice, compare results to state
+     - Step 4 (verification): check deployment status, run smoke tests
    - If validation matches state → continue
    - If validation differs → update state to reflect actual results, log the discrepancy, then continue
 
@@ -844,7 +840,7 @@ shells/nextjs-typescript/
 │   │       ├── Features/             # Cucumber.js step definitions (root-level)
 │   │       └── Integration/          # Integration tests (Supertest)
 │   └── shared/                       # Contract types shared between API and Web
-│       └── types/                    # TypeScript interfaces generated in Phase 5
+│       └── types/                    # TypeScript interfaces generated per increment (Step 2)
 ├── e2e/                              # Playwright end-to-end tests
 │   ├── playwright.config.ts
 │   ├── smoke.spec.ts                 # Smoke tests (@smoke tag)
@@ -867,15 +863,16 @@ shells/nextjs-typescript/
 │       ├── step-definitions/         # TypeScript step definition files
 │       └── support/                  # World class, hooks
 ├── specs/                            # PRD, FRDs, Gherkin feature files
-│   ├── ui/                       # UI/UX specs & prototypes (Phase 2) — PERSISTENT, used by all downstream phases
-│   │   ├── screen-map.md         # Screen inventory and navigation map (→ Gherkin screen names)
-│   │   ├── design-system.md      # Design tokens and component patterns (→ Web slice)
-│   │   ├── component-inventory.md # All UI components, props, states (→ POMs, Gherkin, Web slice)
-│   │   ├── flow-walkthrough.md   # User journey narratives per FRD (→ e2e test flows)
-│   │   ├── walkthrough.html      # Replayable visual walkthrough (→ docs site)
-│   │   └── prototypes/           # Interactive HTML wireframes (→ POM selectors, component structure)
+│   ├── ui/                       # UI/UX specs & prototypes (Phase 1b) — PERSISTENT, used by all increments
+│   │   ├── screen-map.md         # Screen inventory and navigation map
+│   │   ├── design-system.md      # Design tokens and component patterns
+│   │   ├── component-inventory.md # All UI components, props, states
+│   │   ├── flow-walkthrough.md   # User journey narratives per FRD (source of truth for e2e flows)
+│   │   ├── walkthrough.html      # Replayable visual walkthrough
+│   │   └── prototypes/           # Interactive HTML wireframes
+│   ├── increment-plan.md             # Ordered increment plan (Phase 1c)
 │   ├── features/                     # .feature files consumed by Cucumber.js
-│   └── contracts/                    # Contracts generated in Phase 5
+│   └── contracts/                    # Contracts generated per increment (Step 2)
 │       ├── api/                      # API contracts per feature (OpenAPI-style YAML)
 │       └── infra/                    # Infrastructure contract (resources.yaml)
 ├── apphost.cs                        # .NET Aspire orchestrator (file-based AppHost)
@@ -885,9 +882,10 @@ shells/nextjs-typescript/
 ├── .github/
 │   ├── agents/                       # Custom Copilot agents (spec2cloud sub-agents)
 │   │   ├── spec-refinement.agent.md  # PRD/FRD review and refinement
-│   │   ├── gherkin-generation.agent.md # FRD → Gherkin scenarios
 │   │   ├── ui-ux-design.agent.md     # FRD → interactive HTML wireframe prototypes
-│   │   ├── test-generation.agent.md  # Gherkin → executable test scaffolding
+│   │   ├── e2e-generation.agent.md   # Flow walkthrough → Playwright e2e tests
+│   │   ├── gherkin-generation.agent.md # FRD → Gherkin scenarios
+│   │   ├── test-generation.agent.md  # Gherkin → Cucumber step defs + Vitest tests
 │   │   ├── contract-generation.agent.md # API specs, shared types, infra contracts
 │   │   ├── implementation.agent.md   # Code generation to make tests pass
 │   │   └── deploy.agent.md           # AZD provisioning, deployment, smoke tests
@@ -904,19 +902,22 @@ shells/nextjs-typescript/
 |---|---|---|
 | Unit tests (API) | `cd src/api && npm test` | Vitest + Supertest, runs all API tests |
 | Unit tests (API, watch) | `cd src/api && npm run test:watch` | Re-runs on file changes |
-| Cucumber/Gherkin | `npx cucumber-js` | Runs specs/features/*.feature via step-definitions |
-| Playwright e2e | `npx playwright test --config=e2e/playwright.config.ts` | All e2e specs |
-| Playwright specific | `npx playwright test e2e/{feature}.spec.ts` | Single feature e2e |
+| Cucumber/Gherkin | `npx cucumber-js` | Runs against Aspire environment (auto-started by hooks) |
+| Playwright e2e | `npx playwright test --config=e2e/playwright.config.ts` | Runs against Aspire environment (auto-started by webServer config) |
+| Playwright specific | `npx playwright test e2e/{feature}.spec.ts` | Single feature e2e against Aspire |
 | Playwright smoke | `npx playwright test --grep @smoke` | Smoke tests only |
 | Playwright UI mode | `npx playwright test --ui` | Interactive debugging |
-| All tests | `npm run test:all` | Cucumber + Playwright combined |
+| All tests | `npm run test:all` | Unit + Cucumber + Playwright (all against Aspire) |
 
 ### Dev Server Commands
 
 | Service | Command | URL |
 |---|---|---|
-| Frontend | `cd src/web && npm run dev` | http://localhost:3000 |
-| Backend | `cd src/api && npm run dev` | http://localhost:5001 (dev) / 8080 (container) |
+| **Aspire (all services)** | `aspire run` | Web: http://localhost:3001, API: http://localhost:5001 |
+| Frontend (standalone) | `cd src/web && npm run dev` | http://localhost:3000 |
+| Backend (standalone) | `cd src/api && npm run dev` | http://localhost:5001 (dev) / 8080 (container) |
+
+> **Prefer Aspire** for all integration, Cucumber, and e2e testing. Standalone dev servers are only for isolated slice work (API-only or Web-only development).
 
 ### Build Commands
 
@@ -963,8 +964,8 @@ Before writing implementation code, agents **must** research current best practi
 
 ### When Research Applies
 
-- **Phase 6 (Implementation):** Mandatory before the first slice of each feature (via `research-best-practices` skill)
-- **Phase 7 (Deployment):** Query Azure Best Practices and Microsoft Learn before writing infra/Bicep
+- **Step 3 (Implementation):** Mandatory before the first slice of each feature (via `research-best-practices` skill)
+- **Step 4 (Deployment):** Query Azure Best Practices and Microsoft Learn before writing infra/Bicep
 - **Any phase:** When introducing a technology, SDK, or pattern not already established in the project
 
 ### Caching

@@ -1,17 +1,20 @@
 # Contract Generation Agent
 
-You are the **contract generation agent**. You produce the contracts that bridge test generation and implementation: API specifications, shared TypeScript types, and infrastructure resource requirements. All contracts must be finalized for **every feature** before any implementation begins.
+You are the **contract generation agent**. You produce the contracts that bridge test generation and implementation: API specifications, shared TypeScript types, and infrastructure resource requirements. Contracts are generated **per increment** — only for the features and endpoints scoped to the current increment.
 
 ## Role
 
-You operate during **Phase 4: Contract Generation**. Your output is the stable foundation that enables frontend and backend implementation slices to run in parallel without conflicts.
+You operate during **Phase 2, Step 2: Contract Generation** of each increment. Your output is the stable foundation that enables frontend and backend implementation slices to run in parallel without conflicts.
 
 ## Inputs
 
-- Approved FRDs (`specs/frd-*.md`)
-- Gherkin feature files (`specs/features/*.feature`)
-- Test scaffolding from Phase 3 (step definitions, Playwright specs, unit test files)
-- Current `state.json` with the `features[]` array
+- The current increment's scope from `specs/increment-plan.md`
+- Approved FRDs scoped to this increment (`specs/frd-*.md`)
+- Gherkin feature files for this increment (`specs/features/*.feature`)
+- E2E test specs for this increment (Playwright specs, Page Object Models)
+- BDD test scaffolding for this increment (step definitions, unit test files)
+- Existing contracts from previous increments (to extend, not conflict)
+- Current `state.json`
 
 ## Outputs
 

@@ -9,7 +9,7 @@ You are the Deploy Agent. You provision Azure infrastructure, deploy the applica
 Before deploying, verify every precondition. Do not proceed until all checks pass.
 
 1. **Tests pass locally** — Run unit tests, Gherkin tests, and Playwright tests. All must be green.
-2. **State is ready** — Read `.spec2cloud/state.json` and confirm Phase 5 (implementation) is complete. Consult the infrastructure contract from Phase 4 (`specs/contracts/infra/resources.yaml`) for resource configuration guidance.
+2. **State is ready** — Read `.spec2cloud/state.json` and confirm the current increment's implementation (Step 3) is complete. Consult the infrastructure contract (`specs/contracts/infra/resources.yaml`) for resource configuration guidance.
 3. **`azure.yaml` exists and is valid** — Parse the file and verify it defines at least one service with a valid project path and host (`containerapp`).
 4. **Infrastructure templates exist** — Verify the `infra/` directory contains Bicep files (`main.bicep` at minimum).
 5. **AZD is installed and authenticated** — Run `azd version` to confirm installation. Run `azd auth login --check-status` to confirm authentication. If not authenticated, stop and flag for human intervention.

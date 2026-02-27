@@ -50,24 +50,45 @@ infra/          → Azure infrastructure (Bicep)
 ## Testing Hierarchy
 1. **Unit tests** — API slice: fastest feedback, run on every backend change
 2. **Component tests** — Web slice: build verification and component tests
-3. **Gherkin step definitions** — Integration slice: behavioral tests after API + Web slices
-4. **Playwright e2e** — Integration slice: full user journey tests
-5. **Smoke tests** — post-deployment verification
+3. **Playwright e2e** — Full user flow tests, run against Aspire environment
+4. **Gherkin step definitions** — BDD behavioral tests, run against Aspire environment
+5. **Smoke tests** — post-deployment verification (per increment)
+
+> **All Cucumber and Playwright tests run against the Aspire environment** (`aspire run`), which orchestrates API and Web services identically to production.
+> **Iterative delivery:** Each increment goes through the full test → implement → deploy cycle. After each increment, ALL tests pass and the app is deployed.
 
 ## Human Gates
 The agent MUST pause and ask for human approval at these points:
-- After PRD review (before FRD breakdown)
-- After FRD review (before Gherkin generation)
-- After Gherkin generation (before test generation)
-- After contract generation (before implementation) — API specs, shared types, and infra contracts
-- After implementation (before deployment) — via PR review
-- After deployment (if smoke tests fail)
+- After FRD review (before UI/UX design)
+- After UI/UX design (before increment planning)
+- After increment plan approval (before first increment)
+- Per increment: after Gherkin generation (before BDD test scaffolding)
+- Per increment: after implementation (before deployment) — via PR review
+- Per increment: after deployment (verify it works)
 
 ## State Management
 - Read `.spec2cloud/state.json` at the start of every session
 - Update it after completing each task
 - Append to `.spec2cloud/audit.log` after every action
 - If state.json is missing, start from Phase 0
+
+## Agentic Solutions & Workflows
+
+When the project requires AI agents, agentic workflows, or human-in-the-loop AI features, use the following frameworks:
+
+- **LangGraph** (backend — `src/api/`): Use LangGraph.js for building stateful, multi-step agent workflows. Define agents as graphs with nodes (tools, LLM calls, logic) and edges (conditional routing, cycles). Use checkpointing for persistence and human-in-the-loop patterns. Prefer `@langchain/langgraph` for orchestration and `@langchain/core` for primitives.
+- **CopilotKit** (frontend — `src/web/`): Use CopilotKit for embedding AI copilot experiences in the Next.js frontend. Use `<CopilotKit>` provider, `useCopilotAction` for frontend actions, `useCopilotReadable` for context, and `CopilotSidebar`/`CopilotPopup` for UI. Connect to LangGraph backends via CopilotKit's `CoAgents` integration for full-stack agentic flows.
+
+**When to use:**
+- Any feature involving AI agents, chatbots, or multi-step AI workflows → LangGraph + CopilotKit
+- Backend-only agent orchestration (no UI) → LangGraph alone
+- Frontend copilot/assistant UX without custom agent logic → CopilotKit alone
+
+**Conventions:**
+- Agent graphs live in `src/api/src/agents/` — one file per agent graph
+- CopilotKit actions live alongside their React components in `src/web/`
+- Always define agent state as a TypeScript interface in `src/shared/types/`
+- Use streaming for all agent responses — no blocking LLM calls in request handlers
 
 ## Shell-Specific Extensions
 <!-- Shells should add stack-specific instructions below this line -->
