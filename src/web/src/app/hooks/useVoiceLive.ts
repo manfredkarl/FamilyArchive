@@ -251,7 +251,7 @@ export function useVoiceLive(): UseVoiceLiveReturn {
             session: {
               modalities: ['audio', 'text'],
               instructions: SYSTEM_PROMPT,
-              voice: { type: 'azure_standard', name: 'de-DE-AmalaNeural' },
+              voice: { name: 'de-DE-AmalaNeural' },
               input_audio_format: 'pcm16',
               output_audio_format: 'pcm16',
               input_audio_transcription: { model: 'whisper-1' },
