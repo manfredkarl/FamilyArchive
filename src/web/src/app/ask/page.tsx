@@ -33,7 +33,8 @@ export default function AskPage() {
     setSources([]);
 
     try {
-      const res = await fetch('/api/stories/ask', {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+      const res = await fetch(`${apiBase}/api/stories/ask`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: text }),

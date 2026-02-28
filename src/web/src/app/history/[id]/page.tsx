@@ -30,6 +30,8 @@ interface Entity {
   sourceSessionIds: string[];
 }
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+
 const ENTITY_COLORS: Record<string, { bg: string; text: string; label: string }> = {
   person: { bg: '#DBEAFE', text: '#1E40AF', label: 'Person' },
   place: { bg: '#D1FAE5', text: '#065F46', label: 'Ort' },
@@ -74,9 +76,9 @@ export default function SessionTranscriptPage() {
   const fetchData = useCallback(async () => {
     try {
       const [sessionRes, messagesRes, entitiesRes] = await Promise.all([
-        fetch(`/api/stories/sessions/${sessionId}`),
-        fetch(`/api/stories/sessions/${sessionId}/messages`),
-        fetch('/api/stories/entities'),
+        fetch(`${API_BASE}/api/stories/sessions/${sessionId}`),
+        fetch(`${API_BASE}/api/stories/sessions/${sessionId}/messages`),
+        fetch(`${API_BASE}/api/stories/entities`),
       ]);
 
       if (sessionRes.status === 404) {

@@ -16,6 +16,8 @@ interface Entity {
   decade: string | null;
 }
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+
 const STATUS_COLORS: Record<string, { bg: string; border: string; label: string }> = {
   covered: { bg: '#D1FAE5', border: '#059669', label: 'gut erzählt' },
   thin: { bg: '#FEF3C7', border: '#D97706', label: 'wenig erzählt' },
@@ -45,7 +47,7 @@ export default function TimelinePage() {
 
   const fetchCoverage = useCallback(async () => {
     try {
-      const res = await fetch('/api/stories/coverage');
+      const res = await fetch(`${API_BASE}/api/stories/coverage`);
       if (res.ok) {
         const data = await res.json();
         setDecades(data.decades);
@@ -69,7 +71,7 @@ export default function TimelinePage() {
     }
     setSelectedDecade(decade);
     try {
-      const res = await fetch(`/api/stories/entities?decade=${decade}`);
+      const res = await fetch(`${API_BASE}/api/stories/entities?decade=${decade}`);
       if (res.ok) {
         const data = await res.json();
         setEntities(data.entities);

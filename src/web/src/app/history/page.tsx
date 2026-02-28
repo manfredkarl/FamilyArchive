@@ -12,6 +12,7 @@ interface Session {
   messageCount: number;
 }
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
 const PAGE_SIZE = 20;
 
 function formatDate(iso: string): string {
@@ -39,7 +40,7 @@ export default function HistoryPage() {
 
   const fetchSessions = useCallback(async (offset: number) => {
     try {
-      const res = await fetch(`/api/stories/sessions?limit=${PAGE_SIZE}&offset=${offset}`);
+      const res = await fetch(`${API_BASE}/api/stories/sessions?limit=${PAGE_SIZE}&offset=${offset}`);
       if (!res.ok) throw new Error('Fehler beim Laden');
       const data = await res.json();
       if (offset === 0) {
