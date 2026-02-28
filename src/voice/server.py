@@ -196,7 +196,7 @@ async def handle_connection(browser_ws) -> None:
 
 async def main() -> None:
     logger.info("Starting VoiceLive proxy on port %d", PORT)
-    logger.info("Endpoint: %s  Model: %s  Voice: %s", ENDPOINT, MODEL, VOICE)
+    logger.info("Endpoint: %s  Model: %s  Voice: %s", ENDPOINT, MODEL, VOICE_NAME)
 
     stop = asyncio.get_event_loop().create_future()
 
