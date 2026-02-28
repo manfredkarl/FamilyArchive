@@ -97,25 +97,36 @@ export async function answerKnowledgeQuery(
     }
   }
 
-  // Build prompt context
+  // Build prompt context — include ALL conversation messages for richer context
   const entitiesJson = JSON.stringify(
     matchedEntities.map((e) => ({ name: e.name, type: e.type, context: e.context, relationship: e.relationship, decade: e.decade })),
     null,
     2,
   );
 
-  const sourceExcerpts = sources
-    .map((s) => `[${s.sessionId}] ${s.excerpt}`)
-    .join('\n');
+  // Get all messages from sessions where entities were found
+  const sessionIds = new Set(matchedEntities.flatMap((e) => e.sourceSessionIds));
+  const allExcerpts: string[] = [];
+  for (const sid of sessionIds) {
+    const messages = getSessionMessages(sid);
+    const session = getSession(sid);
+    const date = session?.startedAt ? new Date(session.startedAt).toLocaleDateString('de-DE') : '';
+    for (const msg of messages) {
+      if (msg.role === 'user') {
+        allExcerpts.push(`[${date}] Oma: ${msg.content}`);
+      }
+    }
+  }
 
   const systemContent = `${QUERY_PROMPT}
 
-ENTITIES:
+EXTRACTED ENTITIES:
 ${entitiesJson}
 
-SOURCE MESSAGES:
-${sourceExcerpts || '(keine Quellen verfügbar)'}`;
+OMA'S STORIES (from conversations):
+${allExcerpts.join('\n') || '(keine Geschichten verfügbar)'}
 
+IMPORTANT: Use the stories above to answer. Even brief mentions are valuable family memories to share.`;
   if (!isOpenAIConfigured()) {
     return {
       answer: 'Dazu hat Oma leider noch nichts erzählt. Vielleicht können Sie sie beim nächsten Gespräch danach fragen!',
