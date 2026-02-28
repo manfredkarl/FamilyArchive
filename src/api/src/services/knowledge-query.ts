@@ -1,5 +1,6 @@
 import { chatCompletion, isOpenAIConfigured, type ChatMessage } from './openai-client.js';
-import { searchEntities, getSessionMessages, getSession } from './story-store.js';
+import { searchEntities, getAllEntities, getSessionMessages, getSession } from './story-store.js';
+import type { Entity } from '../models/story.js';
 import { logger } from '../logger.js';
 
 const QUERY_PROMPT = `You are answering a family member's question about their grandmother's ("Oma's") life stories. 
@@ -8,6 +9,50 @@ Use ONLY the information provided below from Oma's own conversations. Do not inv
 If the provided information answers the question, compose a warm, narrative answer in German that weaves together Oma's own words and details. Reference specific stories naturally.
 
 If the provided information does NOT contain relevant details, respond: "Dazu hat Oma leider noch nichts erzählt. Vielleicht können Sie sie beim nächsten Gespräch danach fragen!"`;
+
+const STOP_WORDS = new Set(['was', 'wer', 'wo', 'wie', 'wann', 'warum', 'ist', 'hat', 'du', 'sie', 'er', 'es', 'ein', 'eine', 'der', 'die', 'das', 'den', 'dem', 'des', 'und', 'oder', 'aber', 'über', 'ueber', 'von', 'mit', 'für', 'fuer', 'zu', 'aus', 'bei', 'nach', 'vor', 'in', 'an', 'auf', 'weisst', 'weißt', 'kennst', 'erzähl', 'erzaehl', 'mir', 'mich', 'dich', 'sich', 'uns', 'euch', 'noch', 'schon', 'auch', 'nicht', 'kein', 'keine', 'etwas', 'alles', 'nichts', 'bitte', 'danke']);
+
+/**
+ * Search entities using keywords extracted from a natural language question.
+ * Splits the question into words, filters stop words, then searches each word.
+ */
+function searchEntitiesForQuery(question: string): Entity[] {
+  const words = question.toLowerCase().replace(/[?!.,;:]/g, '').split(/\s+/).filter((w) => w.length > 2 && !STOP_WORDS.has(w));
+  
+  const allEnts = getAllEntities();
+  const matched = new Map<string, Entity>();
+  
+  // Match entities whose name appears in the question (or vice versa)
+  for (const entity of allEnts) {
+    const eName = entity.name.toLowerCase();
+    // Check if any query word matches entity name
+    for (const word of words) {
+      if (eName.includes(word) || word.includes(eName)) {
+        matched.set(entity.id, entity);
+        break;
+      }
+    }
+    // Also check if entity context matches any keyword
+    const eCtx = entity.context.toLowerCase();
+    for (const word of words) {
+      if (eCtx.includes(word)) {
+        matched.set(entity.id, entity);
+        break;
+      }
+    }
+  }
+  
+  // If no keyword matches, also try the direct search as fallback
+  if (matched.size === 0) {
+    for (const word of words) {
+      for (const e of searchEntities(word)) {
+        matched.set(e.id, e);
+      }
+    }
+  }
+  
+  return Array.from(matched.values());
+}
 
 export interface SourceReference {
   sessionId: string;
@@ -19,7 +64,7 @@ export interface SourceReference {
 export async function answerKnowledgeQuery(
   question: string,
 ): Promise<{ answer: string; sources: SourceReference[] }> {
-  const matchedEntities = searchEntities(question);
+  const matchedEntities = searchEntitiesForQuery(question);
 
   if (matchedEntities.length === 0 && !isOpenAIConfigured()) {
     return {
