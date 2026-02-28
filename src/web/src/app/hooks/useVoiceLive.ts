@@ -83,23 +83,18 @@ export function useVoiceLive(): UseVoiceLiveReturn {
     stateRef.current = state;
   }, [state]);
 
-  // ---------- audio playback ----------
+  // ---------- audio playback (seamless streaming) ----------
 
-  const playNextChunk = useCallback(() => {
+  const nextPlayTimeRef = useRef(0);
+
+  const scheduleAudioChunk = useCallback((pcm16: ArrayBuffer) => {
     const ctx = audioCtxRef.current;
-    if (!ctx || playQueueRef.current.length === 0) {
-      isPlayingRef.current = false;
-      return;
-    }
-    isPlayingRef.current = true;
+    if (!ctx) return;
 
-    const pcm16 = playQueueRef.current.shift()!;
-    // Ensure even byte length for Int16Array (PCM16 = 2 bytes per sample)
+    // Ensure even byte length for Int16Array
     const byteLen = pcm16.byteLength - (pcm16.byteLength % 2);
-    if (byteLen === 0) {
-      playNextChunk();
-      return;
-    }
+    if (byteLen === 0) return;
+
     const int16 = new Int16Array(pcm16, 0, byteLen / 2);
     const float32 = new Float32Array(int16.length);
     for (let i = 0; i < int16.length; i++) {
@@ -112,24 +107,26 @@ export function useVoiceLive(): UseVoiceLiveReturn {
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     source.connect(ctx.destination);
-    source.onended = () => playNextChunk();
-    source.start();
-  }, []);
 
-  const enqueueAudio = useCallback(
-    (b64: string) => {
-      const binary = atob(b64);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      playQueueRef.current.push(bytes.buffer);
-      if (!isPlayingRef.current) playNextChunk();
-    },
-    [playNextChunk],
-  );
+    // Schedule seamlessly: each chunk starts right after the previous one ends
+    const now = ctx.currentTime;
+    const startTime = Math.max(now, nextPlayTimeRef.current);
+    source.start(startTime);
+    nextPlayTimeRef.current = startTime + buffer.duration;
+
+    isPlayingRef.current = true;
+    source.onended = () => {
+      // If nothing scheduled after this, we're done playing
+      if (ctx.currentTime >= nextPlayTimeRef.current - 0.01) {
+        isPlayingRef.current = false;
+      }
+    };
+  }, []);
 
   const stopPlayback = useCallback(() => {
     playQueueRef.current = [];
     isPlayingRef.current = false;
+    nextPlayTimeRef.current = 0;
   }, []);
 
   // ---------- cleanup ----------
@@ -244,8 +241,7 @@ export function useVoiceLive(): UseVoiceLiveReturn {
       ws.onmessage = (ev: MessageEvent) => {
         // Binary frame = raw PCM16 audio from VoiceLive
         if (ev.data instanceof ArrayBuffer) {
-          playQueueRef.current.push(ev.data);
-          if (!isPlayingRef.current) playNextChunk();
+          scheduleAudioChunk(ev.data);
           if (stateRef.current !== 'speaking') setState('speaking');
           return;
         }
@@ -317,7 +313,7 @@ export function useVoiceLive(): UseVoiceLiveReturn {
       setState('error');
       cleanup();
     }
-  }, [cleanup, stopPlayback]);
+  }, [cleanup, stopPlayback, scheduleAudioChunk]);
 
   // Cleanup on unmount
   useEffect(() => {
