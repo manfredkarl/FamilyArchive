@@ -27,10 +27,23 @@ interface UseVoiceLiveReturn {
   endSession: () => void;
 }
 
-const VOICE_URL =
-  process.env.NEXT_PUBLIC_VOICE_URL || 'ws://localhost:5002/ws';
+const TOKEN_URL =
+  process.env.NEXT_PUBLIC_API_URL
+    ? `${process.env.NEXT_PUBLIC_API_URL}/api/voice/token`
+    : '/api/voice/token';
 
-const VL_SAMPLE_RATE = 24000; // VoiceLive uses 24kHz PCM16
+const VL_SAMPLE_RATE = 24000;
+const API_VERSION = '2025-10-01';
+
+const SYSTEM_PROMPT = `Du bist eine warmherzige, geduldige KI-Begleiterin, die Oma dabei hilft, ihre Lebensgeschichten zu bewahren.
+
+Deine Regeln:
+- Sprich immer auf Deutsch, in einem warmen, respektvollen Ton.
+- Höre aufmerksam zu und zeige echtes Interesse.
+- Stelle sanfte Nachfragen (Wer? Wo? Wann? Wie hat sich das angefühlt?).
+- Unterbreche niemals.
+- Halte deine Antworten kurz und herzlich (2-4 Sätze).
+- Frage nach verschiedenen Lebensjahrzehnten.`;
 
 /**
  * PCM16-capture AudioWorklet processor.
@@ -63,6 +76,26 @@ class Pcm16CaptureProcessor extends AudioWorkletProcessor {
 registerProcessor('pcm16-capture', Pcm16CaptureProcessor);
 `;
 
+/** Convert an ArrayBuffer of PCM16 bytes to a base64 string. */
+function pcm16ToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+/** Decode a base64 string to an ArrayBuffer. */
+function base64ToArrayBuffer(b64: string): ArrayBuffer {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
 let _nextId = 0;
 function uid(): string {
   return `t-${Date.now()}-${_nextId++}`;
@@ -80,8 +113,7 @@ export function useVoiceLive(): UseVoiceLiveReturn {
   const micStreamRef = useRef<MediaStream | null>(null);
   const workletNodeRef = useRef<AudioWorkletNode | null>(null);
   const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  const playQueueRef = useRef<ArrayBuffer[]>([]);
-  const isPlayingRef = useRef(false);
+  const nextPlayTimeRef = useRef(0);
   const stateRef = useRef<VoiceLiveState>('idle');
 
   useEffect(() => {
@@ -90,23 +122,21 @@ export function useVoiceLive(): UseVoiceLiveReturn {
 
   // ---------- audio playback (seamless streaming) ----------
 
-  const nextPlayTimeRef = useRef(0);
-
-  const scheduleAudioChunk = useCallback((pcm16: ArrayBuffer) => {
+  const scheduleAudioChunk = useCallback((pcm16Bytes: ArrayBuffer) => {
     const ctx = playbackCtxRef.current;
     if (!ctx) return;
 
     // Ensure even byte length for Int16Array
-    const byteLen = pcm16.byteLength - (pcm16.byteLength % 2);
+    const byteLen = pcm16Bytes.byteLength - (pcm16Bytes.byteLength % 2);
     if (byteLen === 0) return;
 
-    const int16 = new Int16Array(pcm16, 0, byteLen / 2);
+    const int16 = new Int16Array(pcm16Bytes, 0, byteLen / 2);
     const float32 = new Float32Array(int16.length);
     for (let i = 0; i < int16.length; i++) {
       float32[i] = int16[i] / (int16[i] < 0 ? 0x8000 : 0x7fff);
     }
 
-    // Create buffer at VoiceLive's 24kHz — AudioContext auto-resamples to native rate
+    // Create buffer at 24kHz — AudioContext auto-resamples to native rate
     const buffer = ctx.createBuffer(1, float32.length, VL_SAMPLE_RATE);
     buffer.copyToChannel(float32, 0);
 
@@ -114,25 +144,19 @@ export function useVoiceLive(): UseVoiceLiveReturn {
     source.buffer = buffer;
     source.connect(ctx.destination);
 
-    // Schedule seamlessly: each chunk starts right after the previous one ends
     const now = ctx.currentTime;
     const startTime = Math.max(now, nextPlayTimeRef.current);
     source.start(startTime);
     nextPlayTimeRef.current = startTime + buffer.duration;
-
-    isPlayingRef.current = true;
-    source.onended = () => {
-      // If nothing scheduled after this, we're done playing
-      if (ctx.currentTime >= nextPlayTimeRef.current - 0.01) {
-        isPlayingRef.current = false;
-      }
-    };
   }, []);
 
   const stopPlayback = useCallback(() => {
-    playQueueRef.current = [];
-    isPlayingRef.current = false;
     nextPlayTimeRef.current = 0;
+    // Close and recreate playback context to cancel all scheduled sources
+    if (playbackCtxRef.current) {
+      try { playbackCtxRef.current.close(); } catch { /* ignore */ }
+      playbackCtxRef.current = new AudioContext();
+    }
   }, []);
 
   // ---------- cleanup ----------
@@ -162,17 +186,12 @@ export function useVoiceLive(): UseVoiceLiveReturn {
       try { playbackCtxRef.current.close(); } catch { /* ignore */ }
       playbackCtxRef.current = null;
     }
-    stopPlayback();
-  }, [stopPlayback]);
+    nextPlayTimeRef.current = 0;
+  }, []);
 
   // ---------- endSession ----------
 
   const endSession = useCallback(() => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      try {
-        wsRef.current.send(JSON.stringify({ type: 'end' }));
-      } catch { /* ignore */ }
-    }
     cleanup();
     setState('idle');
     setInterimText('');
@@ -181,7 +200,6 @@ export function useVoiceLive(): UseVoiceLiveReturn {
   // ---------- startSession ----------
 
   const startSession = useCallback(async () => {
-    // Reset
     cleanup();
     setTranscripts([]);
     setInterimText('');
@@ -189,7 +207,19 @@ export function useVoiceLive(): UseVoiceLiveReturn {
     setState('connecting');
 
     try {
-      // 1. Get mic access (mono, noise/echo suppressed)
+      // 1. Fetch short-lived token from our API
+      const tokenRes = await fetch(TOKEN_URL);
+      if (!tokenRes.ok) {
+        const body = await tokenRes.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to fetch voice token');
+      }
+      const { token, endpoint, model } = (await tokenRes.json()) as {
+        token: string;
+        endpoint: string;
+        model: string;
+      };
+
+      // 2. Get mic access (mono, noise/echo suppressed)
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           channelCount: 1,
@@ -200,97 +230,148 @@ export function useVoiceLive(): UseVoiceLiveReturn {
       });
       micStreamRef.current = stream;
 
-      // 2. Capture AudioContext (native rate — worklet resamples to 24kHz)
+      // 3. Capture AudioContext (native rate — worklet resamples to 24kHz)
       const captureCtx = new AudioContext();
       captureCtxRef.current = captureCtx;
 
-      // 3. Playback AudioContext (native rate — createBuffer(24kHz) auto-resamples)
+      // 4. Playback AudioContext (native rate — createBuffer(24kHz) auto-resamples)
       const playbackCtx = new AudioContext();
       playbackCtxRef.current = playbackCtx;
 
-      // 4. Register worklet
+      // 5. Register worklet
       const blob = new Blob([WORKLET_SOURCE], { type: 'application/javascript' });
       const workletUrl = URL.createObjectURL(blob);
       await captureCtx.audioWorklet.addModule(workletUrl);
       URL.revokeObjectURL(workletUrl);
 
-      // 5. Connect mic → worklet (captures at native rate, worklet resamples to 24kHz)
-      const source = captureCtx.createMediaStreamSource(stream);
-      sourceNodeRef.current = source;
+      // 6. Connect mic → worklet
+      const micSource = captureCtx.createMediaStreamSource(stream);
+      sourceNodeRef.current = micSource;
 
       const worklet = new AudioWorkletNode(captureCtx, 'pcm16-capture');
       workletNodeRef.current = worklet;
-      source.connect(worklet);
+      micSource.connect(worklet);
 
-      // 6. WebSocket to VoiceLive proxy
-      const ws = new WebSocket(VOICE_URL);
+      // 7. Connect directly to Azure VoiceLive WebSocket
+      const host = endpoint.replace(/^https?:\/\//, '');
+      const wsUrl = `wss://${host}/voice-live/realtime?api-version=${API_VERSION}&model=${encodeURIComponent(model)}&access_token=${encodeURIComponent(token)}`;
+      const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
-      ws.binaryType = 'arraybuffer';
-
       ws.onopen = () => {
-        // Start forwarding mic audio
+        // Send session.update to configure the session
+        ws.send(
+          JSON.stringify({
+            type: 'session.update',
+            session: {
+              modalities: ['audio', 'text'],
+              instructions: SYSTEM_PROMPT,
+              voice: { type: 'azure_standard', name: 'de-DE-AmalaNeural' },
+              input_audio_format: 'pcm16',
+              output_audio_format: 'pcm16',
+              input_audio_transcription: { model: 'whisper-1' },
+              turn_detection: { type: 'server_vad' },
+            },
+          }),
+        );
+
+        // Start forwarding mic audio as base64
         worklet.port.onmessage = (ev: MessageEvent) => {
           if (ws.readyState === WebSocket.OPEN && ev.data instanceof ArrayBuffer) {
-            ws.send(new Uint8Array(ev.data));
+            const b64 = pcm16ToBase64(ev.data);
+            ws.send(JSON.stringify({ type: 'input_audio_buffer.append', audio: b64 }));
           }
         };
+
+        setState('listening');
       };
 
       ws.onmessage = (ev: MessageEvent) => {
-        // Binary frame = raw PCM16 audio from VoiceLive
-        if (ev.data instanceof ArrayBuffer) {
-          scheduleAudioChunk(ev.data);
-          if (stateRef.current !== 'speaking') setState('speaking');
-          return;
-        }
-
-        // Text frame = JSON control/transcript message
         if (typeof ev.data !== 'string') return;
         try {
           const msg = JSON.parse(ev.data);
           switch (msg.type) {
-            case 'status':
-              if (msg.status === 'listening') setState('listening');
-              else if (msg.status === 'thinking') setState('thinking');
-              else if (msg.status === 'speaking') setState('speaking');
+            // --- Audio playback ---
+            case 'response.audio.delta': {
+              const pcm16 = base64ToArrayBuffer(msg.delta);
+              scheduleAudioChunk(pcm16);
+              if (stateRef.current !== 'speaking') setState('speaking');
               break;
+            }
 
-            case 'transcript': {
-              const entry: TranscriptEntry = {
-                id: uid(),
-                role: msg.role,
-                text: msg.text,
-                isFinal: msg.isFinal,
-                timestamp: Date.now(),
-              };
-              if (!msg.isFinal && msg.role === 'user') {
-                setInterimText(msg.text);
-              } else {
-                setInterimText('');
-                setTranscripts((prev) => {
-                  // Replace last interim from same role if not final
-                  const last = prev[prev.length - 1];
-                  if (last && !last.isFinal && last.role === entry.role) {
-                    return [...prev.slice(0, -1), entry];
-                  }
-                  return [...prev, entry];
-                });
-              }
-              // Barge-in: user starts speaking while AI is playing
-              if (msg.role === 'user' && stateRef.current === 'speaking') {
-                stopPlayback();
-                setState('listening');
+            // --- Assistant transcript ---
+            case 'response.audio_transcript.delta': {
+              const text = msg.delta || '';
+              setTranscripts((prev) => {
+                const last = prev[prev.length - 1];
+                if (last && last.role === 'assistant' && !last.isFinal) {
+                  return [
+                    ...prev.slice(0, -1),
+                    { ...last, text: last.text + text },
+                  ];
+                }
+                return [
+                  ...prev,
+                  { id: uid(), role: 'assistant', text, isFinal: false, timestamp: Date.now() },
+                ];
+              });
+              break;
+            }
+
+            // --- User transcript (final) ---
+            case 'conversation.item.input_audio_transcription.completed': {
+              const text = msg.transcript || '';
+              if (text.trim()) {
+                setTranscripts((prev) => [
+                  ...prev,
+                  { id: uid(), role: 'user', text, isFinal: true, timestamp: Date.now() },
+                ]);
               }
               break;
             }
 
+            // --- State transitions ---
+            case 'response.created':
+              // Mark current assistant transcript as final before new response
+              setTranscripts((prev) => {
+                const last = prev[prev.length - 1];
+                if (last && last.role === 'assistant' && !last.isFinal) {
+                  return [...prev.slice(0, -1), { ...last, isFinal: true }];
+                }
+                return prev;
+              });
+              setState('thinking');
+              break;
+
+            case 'response.done':
+              // Finalize any pending assistant transcript
+              setTranscripts((prev) => {
+                const last = prev[prev.length - 1];
+                if (last && last.role === 'assistant' && !last.isFinal) {
+                  return [...prev.slice(0, -1), { ...last, isFinal: true }];
+                }
+                return prev;
+              });
+              setState('listening');
+              break;
+
+            case 'input_audio_buffer.speech_started':
+              // Barge-in: user started speaking
+              stopPlayback();
+              setState('listening');
+              setInterimText('');
+              break;
+
             case 'error':
-              setErrorMessage(msg.message || 'Ein Fehler ist aufgetreten.');
+              setErrorMessage(
+                msg.error?.message || 'Ein Fehler ist aufgetreten.',
+              );
               setState('error');
               break;
           }
-        } catch { /* ignore non-JSON */ }
+        } catch {
+          /* ignore non-JSON */
+        }
       };
 
       ws.onerror = () => {
@@ -307,7 +388,9 @@ export function useVoiceLive(): UseVoiceLiveReturn {
       const msg =
         err instanceof DOMException && err.name === 'NotAllowedError'
           ? 'Mikrofon-Zugriff wurde verweigert. Bitte erlauben Sie den Zugriff in den Browser-Einstellungen.'
-          : 'Sprachsitzung konnte nicht gestartet werden.';
+          : err instanceof Error
+            ? err.message
+            : 'Sprachsitzung konnte nicht gestartet werden.';
       setErrorMessage(msg);
       setState('error');
       cleanup();
