@@ -1,3 +1,4 @@
+import { DefaultAzureCredential } from '@azure/identity';
 import { logger } from '../logger.js';
 
 export interface ChatMessage {
@@ -12,9 +13,10 @@ export interface ChatCompletionOptions {
 
 interface AzureOpenAIConfig {
   endpoint: string;
-  apiKey: string;
   deployment: string;
   apiVersion: string;
+  useIdentity: boolean;
+  apiKey?: string;
 }
 
 const FALLBACK_WELCOME_FIRST =
@@ -34,20 +36,33 @@ const FALLBACK_RESPONSES = [
 const FALLBACK_SUMMARY =
   'Ein schönes Gespräch mit geteilten Erinnerungen und Geschichten aus vergangenen Zeiten.';
 
+// Cached credential instance (reused across requests)
+let credential: DefaultAzureCredential | null = null;
+
+function getCredential(): DefaultAzureCredential {
+  if (!credential) {
+    credential = new DefaultAzureCredential();
+  }
+  return credential;
+}
+
 function getConfig(): AzureOpenAIConfig | null {
   const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
-  const apiKey = process.env.AZURE_OPENAI_API_KEY;
   const deployment = process.env.AZURE_OPENAI_DEPLOYMENT;
 
-  if (!endpoint || !apiKey || !deployment) {
+  if (!endpoint || !deployment) {
     return null;
   }
 
+  const apiKey = process.env.AZURE_OPENAI_API_KEY;
+
   return {
     endpoint: endpoint.replace(/\/$/, ''),
-    apiKey,
     deployment,
-    apiVersion: '2024-12-01-preview',
+    apiVersion: process.env.AZURE_OPENAI_API_VERSION || '2024-12-01-preview',
+    // Use identity auth unless an API key is explicitly provided
+    useIdentity: !apiKey,
+    apiKey,
   };
 }
 
@@ -66,6 +81,18 @@ export function getFallbackResponse(): string {
 
 export function getFallbackSummary(): string {
   return FALLBACK_SUMMARY;
+}
+
+async function getAuthHeaders(config: AzureOpenAIConfig): Promise<Record<string, string>> {
+  if (!config.useIdentity && config.apiKey) {
+    return { 'api-key': config.apiKey };
+  }
+
+  // Use DefaultAzureCredential — works with az login, managed identity, etc.
+  const tokenResponse = await getCredential().getToken(
+    'https://cognitiveservices.azure.com/.default',
+  );
+  return { Authorization: `Bearer ${tokenResponse.token}` };
 }
 
 export async function chatCompletion(
@@ -91,6 +118,7 @@ export async function chatCompletion(
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
+      const authHeaders = await getAuthHeaders(config);
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 30000);
 
@@ -98,7 +126,7 @@ export async function chatCompletion(
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'api-key': config.apiKey,
+          ...authHeaders,
         },
         body,
         signal: controller.signal,
