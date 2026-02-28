@@ -1,0 +1,209 @@
+# Azure Resources — OmasApp
+# All Azure resources needed across all increments.
+# Resources marked "MVP" are provisioned for increments 1–5.
+# Resources marked "Production" are for future increments (6+).
+
+apiVersion: "2025-01-01"
+kind: AzureResourceInventory
+metadata:
+  name: omasapp
+  description: Family story preservation app — Azure resource inventory
+
+# ─── MVP Resources (Increments 1–5) ───────────────────────────────────────────
+
+resources:
+
+  # Resource Group
+  - name: rg-${environmentName}
+    type: Microsoft.Resources/resourceGroups
+    increment: "1-walking-skeleton"
+    purpose: Container for all OmasApp resources
+    sku: N/A
+    notes: Created by `azd provision`
+
+  # Container Registry
+  - name: cr${resourceToken}
+    type: Microsoft.ContainerRegistry/registries
+    increment: "1-walking-skeleton"
+    purpose: Store Docker images for API, Web, and Docs containers
+    sku: Basic
+    notes: ACR admin user enabled for AZD deploy
+
+  # Container Apps Environment
+  - name: cae-${resourceToken}
+    type: Microsoft.App/managedEnvironments
+    increment: "1-walking-skeleton"
+    purpose: Shared environment for all Container Apps (networking, logging)
+    sku: Consumption
+    notes: Connected to Log Analytics workspace
+
+  # API Container App
+  - name: ca-api-${resourceToken}
+    type: Microsoft.App/containerApps
+    increment: "1-walking-skeleton"
+    purpose: Express.js API backend
+    sku: Consumption
+    config:
+      port: 8080
+      cpu: "1.0"
+      memory: "2.0Gi"
+      minReplicas: 1
+      ingress: external
+    envVars:
+      - AZURE_CLIENT_ID (from managed identity)
+      - APPLICATIONINSIGHTS_CONNECTION_STRING
+      - AZURE_OPENAI_ENDPOINT (increment 2+)
+      - AZURE_OPENAI_API_KEY (increment 2+)
+      - AZURE_OPENAI_DEPLOYMENT (increment 2+)
+      - AZURE_OPENAI_DEPLOYMENT_MINI (increment 3+)
+      - DATA_DIR=/app/data
+      - PORT=8080
+      - NODE_ENV=production
+
+  # Web Container App
+  - name: ca-web-${resourceToken}
+    type: Microsoft.App/containerApps
+    increment: "1-walking-skeleton"
+    purpose: Next.js frontend
+    sku: Consumption
+    config:
+      port: 3000
+      minReplicas: 1
+      ingress: external
+    envVars:
+      - NEXT_PUBLIC_API_URL (from API container app URL)
+
+  # Docs Container App
+  - name: ca-docs-${resourceToken}
+    type: Microsoft.App/containerApps
+    increment: "1-walking-skeleton"
+    purpose: MkDocs documentation site
+    sku: Consumption
+    config:
+      port: 8080
+      minReplicas: 1
+      ingress: external
+
+  # API Managed Identity
+  - name: id-api-${resourceToken}
+    type: Microsoft.ManagedIdentity/userAssignedIdentities
+    increment: "1-walking-skeleton"
+    purpose: Managed identity for API container (used for Azure service auth in production)
+    sku: N/A
+
+  # Web Managed Identity
+  - name: id-web-${resourceToken}
+    type: Microsoft.ManagedIdentity/userAssignedIdentities
+    increment: "1-walking-skeleton"
+    purpose: Managed identity for Web container
+    sku: N/A
+
+  # Log Analytics Workspace
+  - name: logs-${resourceToken}
+    type: Microsoft.OperationalInsights/workspaces
+    increment: "1-walking-skeleton"
+    purpose: Centralized logging for all containers
+    sku: PerGB2018
+    notes: Retention default 30 days
+
+  # Application Insights
+  - name: appi-${resourceToken}
+    type: Microsoft.Insights/components
+    increment: "1-walking-skeleton"
+    purpose: Application performance monitoring and distributed tracing
+    sku: N/A
+    notes: Connected to Log Analytics workspace
+
+  # Azure OpenAI Service
+  - name: oai-${resourceToken}
+    type: Microsoft.CognitiveServices/accounts
+    kind: OpenAI
+    increment: "2-story-engine"
+    purpose: AI conversation, entity extraction, knowledge queries
+    sku: S0
+    deployments:
+      - name: gpt-4o
+        model: gpt-4o
+        version: "2024-11-20"
+        capacity: 30  # TPM in thousands
+        purpose: Conversation responses, summaries, knowledge queries
+      - name: gpt-4o-mini
+        model: gpt-4o-mini
+        version: "2024-07-18"
+        capacity: 60  # TPM in thousands — higher due to extraction volume
+        purpose: Entity extraction (lower cost)
+    notes: |
+      - API key auth for MVP; Managed Identity for production
+      - Rate limits: monitor 429 responses and adjust capacity
+      - Region: same as resource group for lowest latency
+
+# ─── Production Resources (Increment 6+) ──────────────────────────────────────
+
+  # Azure Cosmos DB (Production storage)
+  - name: cosmos-${resourceToken}
+    type: Microsoft.DocumentDB/databaseAccounts
+    increment: "6-production-storage"
+    status: planned
+    purpose: Replace JSON file store with scalable document database
+    sku: Serverless
+    config:
+      database: omasapp
+      containers:
+        - name: sessions
+          partitionKey: /id
+        - name: messages
+          partitionKey: /sessionId
+        - name: entities
+          partitionKey: /type
+    notes: |
+      - Serverless for cost efficiency at low scale
+      - Provisioned throughput when usage justifies it
+      - Enable automatic indexing
+
+  # Azure Speech Service (Production voice)
+  - name: speech-${resourceToken}
+    type: Microsoft.CognitiveServices/accounts
+    kind: SpeechServices
+    increment: "7-production-voice"
+    status: planned
+    purpose: Replace browser Web Speech API with Azure STT/TTS
+    sku: S0
+    config:
+      speechRecognitionLanguage: de-DE
+      speechSynthesisVoiceName: de-DE-KatjaNeural
+    notes: |
+      - Higher accuracy German STT
+      - Consistent cross-browser
+      - Custom neural voice option
+      - Env vars: AZURE_SPEECH_KEY, AZURE_SPEECH_REGION
+
+# ─── Resource Dependency Graph ─────────────────────────────────────────────────
+
+# Increment 1 (walking-skeleton):
+#   Resource Group → Log Analytics → App Insights
+#   Resource Group → Container Registry
+#   Resource Group → Container Apps Environment
+#   Resource Group → Managed Identities (API, Web)
+#   Container Apps Environment → API Container App
+#   Container Apps Environment → Web Container App
+#   Container Apps Environment → Docs Container App
+#
+# Increment 2 (story-engine):
+#   + Azure OpenAI Service (with gpt-4o deployment)
+#   API Container App ← AZURE_OPENAI_* env vars
+#
+# Increment 3 (knowledge-system):
+#   + gpt-4o-mini deployment on existing Azure OpenAI
+#   API Container App ← AZURE_OPENAI_DEPLOYMENT_MINI env var
+#
+# Increment 4 (history-browsing):
+#   No new resources
+#
+# Increment 5 (voice-interaction):
+#   No new resources (browser Web Speech API — client-side only)
+#
+# Increment 6+ (production-storage):
+#   + Azure Cosmos DB
+#
+# Increment 7+ (production-voice):
+#   + Azure Speech Service

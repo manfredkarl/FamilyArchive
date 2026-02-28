@@ -31,3 +31,6 @@
 [2026-02-28T12:20:00Z] phase=1b action=walkthroughs result=success description="Flow walkthrough (4 journeys) and replayable HTML walkthrough generated"
 [2026-02-28T12:58:00Z] phase=1b action=human-gate result=approved description="UI/UX prototypes approved by human"
 [2026-02-28T12:58:00Z] phase=1c action=phase-start result=success description="Beginning increment planning — breaking FRDs into ordered vertical slices"
+[2026-02-28T13:00:00Z] phase=1c action=increment-plan result=success description="5 increments defined: walking-skeleton, story-engine, knowledge-system, history-browsing, voice-interaction"
+[2026-02-28T13:00:00Z] phase=1d action=phase-start result=success description="Beginning tech stack resolution"
+[2026-02-28T13:05:00Z] phase=1d action=tech-stack result=success description="12 technology categories resolved, 10 decisions documented, infra contract created"
