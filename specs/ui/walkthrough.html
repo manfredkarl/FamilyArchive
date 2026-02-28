@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Omas Geschichten — Walkthrough</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --amber: #D97706; --amber-dark: #B45309; --honey: #F59E0B;
+  --cream: #FFFBEB; --linen: #FEF3C7; --warm-white: #FEFCE8;
+  --espresso: #451A03; --brown: #78350F; --cocoa: #92400E;
+  --border: #FDE68A;
+  --green: #059669;
+  --font-heading: Georgia, 'Times New Roman', serif;
+  --font-body: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  --radius: 12px; --radius-lg: 16px;
+}
+body { font-family: var(--font-body); font-size: 18px; line-height: 1.7; color: var(--espresso); background: var(--cream); }
+a { color: var(--amber); font-weight: 600; text-decoration: none; }
+a:hover { color: var(--amber-dark); text-decoration: underline; }
+a:focus-visible { outline: 3px solid var(--amber-dark); outline-offset: 2px; border-radius: 4px; }
+
+/* Header */
+header { text-align: center; padding: 48px 24px 32px; border-bottom: 2px solid var(--border); }
+header h1 { font-family: var(--font-heading); font-size: 36px; color: var(--espresso); }
+header p { font-size: 20px; color: var(--brown); margin-top: 8px; max-width: 600px; margin-left: auto; margin-right: auto; }
+
+/* Nav */
+.flow-nav { display: flex; justify-content: center; gap: 12px; padding: 24px; flex-wrap: wrap; background: var(--warm-white); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
+.flow-nav a { padding: 10px 20px; border-radius: 20px; background: var(--linen); border: 1px solid var(--border); font-size: 16px; min-height: 48px; display: flex; align-items: center; transition: background 200ms; }
+.flow-nav a:hover { background: var(--honey); text-decoration: none; color: var(--espresso); }
+.flow-nav a.active { background: var(--amber); color: #fff; border-color: var(--amber); }
+
+/* Main */
+main { max-width: 800px; margin: 0 auto; padding: 32px 24px 64px; }
+
+/* Flow sections */
+.flow-section { margin-bottom: 64px; scroll-margin-top: 100px; }
+.flow-section h2 { font-family: var(--font-heading); font-size: 28px; color: var(--espresso); margin-bottom: 8px; padding-bottom: 12px; border-bottom: 2px solid var(--border); }
+.flow-section .flow-desc { font-size: 18px; color: var(--brown); margin-bottom: 24px; }
+
+/* Steps */
+.step { display: flex; gap: 20px; margin-bottom: 24px; }
+.step-number { flex-shrink: 0; width: 48px; height: 48px; background: var(--amber); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; font-family: var(--font-heading); }
+.step-content { flex: 1; }
+.step-content h3 { font-size: 20px; font-weight: 700; color: var(--espresso); margin-bottom: 4px; }
+.step-content p { font-size: 18px; color: var(--brown); }
+.step-content .screen-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; padding: 8px 16px; background: var(--linen); border: 1px solid var(--border); border-radius: var(--radius); font-size: 16px; transition: background 200ms; min-height: 48px; }
+.step-content .screen-link:hover { background: var(--honey); text-decoration: none; }
+
+/* Highlight box */
+.highlight-box { background: var(--linen); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; margin: 16px 0; }
+.highlight-box .label { font-size: 14px; font-weight: 700; color: var(--cocoa); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+
+/* Screen preview link */
+.screen-preview { display: block; background: var(--warm-white); border: 2px solid var(--border); border-radius: var(--radius-lg); padding: 24px; margin: 24px 0; text-align: center; transition: border-color 200ms, box-shadow 200ms; }
+.screen-preview:hover { border-color: var(--amber); box-shadow: 0 4px 16px rgba(180,83,9,0.12); text-decoration: none; }
+.screen-preview .preview-icon { font-size: 48px; margin-bottom: 8px; }
+.screen-preview .preview-title { font-size: 20px; font-weight: 700; color: var(--espresso); }
+.screen-preview .preview-desc { font-size: 16px; color: var(--brown); }
+
+/* Footer */
+footer { text-align: center; padding: 32px 24px; border-top: 2px solid var(--border); }
+footer a { margin: 0 12px; }
+
+@media (max-width: 640px) {
+  header { padding: 32px 16px 24px; }
+  header h1 { font-size: 28px; }
+  main { padding: 24px 16px 48px; }
+  .step { flex-direction: column; gap: 12px; }
+  .flow-nav { gap: 8px; }
+  .flow-nav a { font-size: 14px; padding: 8px 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>💛 Omas Geschichten — Walkthrough</h1>
+  <p>Schritt-für-Schritt-Anleitung durch alle Benutzerflüsse der App</p>
+</header>
+
+<nav class="flow-nav" aria-label="Walkthrough-Navigation">
+  <a href="#flow-conversation" data-testid="walkthrough-nav-conversation" class="active">💬 Gespräch</a>
+  <a href="#flow-knowledge" data-testid="walkthrough-nav-knowledge">🔍 Wissen abfragen</a>
+  <a href="#flow-history" data-testid="walkthrough-nav-history">📖 Verlauf</a>
+  <a href="#flow-timeline" data-testid="walkthrough-nav-timeline">📅 Zeitstrahl</a>
+</nav>
+
+<main>
+
+  <!-- ===== FLOW 1: Story Conversation ===== -->
+  <section class="flow-section" id="flow-conversation">
+    <h2>💬 Flow 1: Gespräch mit Oma führen</h2>
+    <p class="flow-desc">Der Kernfluss der App — Oma erzählt ihre Geschichten per Sprache oder Text, die KI hört zu und stellt einfühlsame Nachfragen.</p>
+
+    <a href="prototypes/conversation.html" class="screen-preview" data-testid="preview-conversation">
+      <div class="preview-icon">💬</div>
+      <div class="preview-title">→ Gesprächs-Prototyp öffnen</div>
+      <div class="preview-desc">Interaktive Demo der Hauptgesprächsseite</div>
+    </a>
+
+    <div class="step">
+      <div class="step-number">1</div>
+      <div class="step-content">
+        <h3>Hauptseite besuchen</h3>
+        <p>Die Nutzerin öffnet die App und sieht die Willkommensseite mit dem großen „💛 Omas Geschichten"-Header und einem prominenten Startknopf.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-number">2</div>
+      <div class="step-content">
+        <h3>Gespräch starten</h3>
+        <p>Klick auf „Gespräch starten" oder den Mikrofon-Knopf. Der Browser fragt nach Mikrofon-Erlaubnis. Falls verweigert, wird automatisch die Texteingabe als Alternative angeboten.</p>
+        <div class="highlight-box">
+          <div class="label">API-Aufruf</div>
+          <code>POST /api/stories/sessions</code> → Neue Sitzung wird erstellt, KI sendet Willkommensnachricht.
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-number">3</div>
+      <div class="step-content">
+        <h3>Geschichte erzählen</h3>
+        <p>Oma spricht frei. Das Mikrofon zeigt grün pulsierend „Ich höre zu…". Nach einer 3-Sekunden-Pause wird der Text finalisiert und an die KI gesendet.</p>
+        <div class="highlight-box">
+          <div class="label">Sprachstatus-Ablauf</div>
+          listening → processing → thinking → speaking → listening (Zyklus)
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-number">4</div>
+      <div class="step-content">
+        <h3>KI antwortet</h3>
+        <p>Die KI-Antwort erscheint als Nachrichtenblase und wird per Sprachsynthese vorgelesen. Der Status zeigt „Spreche Antwort…". Danach schaltet das Mikrofon automatisch wieder auf Zuhören.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-number">5</div>
+      <div class="step-content">
+        <h3>Entitäten werden extrahiert (im Hintergrund)</h3>
+        <p>Nach jeder Nachricht werden automatisch Personen, Orte, Jahre und Ereignisse erkannt. Dies passiert asynchron und stört das Gespräch nicht.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-number">6</div>
+      <div class="step-content">
+        <h3>Lückenfrage (alle 5+ Runden)</h3>
+        <p>Wenn ein Jahrzehnt wenig abgedeckt ist, fragt die KI einfühlsam: „Sie haben noch nicht viel über die 1970er Jahre erzählt — wie war das Leben damals für Sie?"</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-number">7</div>
+      <div class="step-content">
+        <h3>Gespräch beenden</h3>
+        <p>Klick auf „⏹ Gespräch beenden". Die KI verabschiedet sich herzlich. Eine Zusammenfassung wird erstellt und gespeichert.</p>
+        <div class="highlight-box">
+          <div class="label">API-Aufruf</div>
+          <code>POST /api/stories/sessions/:id/end</code> → Sitzung beendet, Zusammenfassung generiert.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FLOW 2: Knowledge Query ===== -->
+  <section class="flow-section" id="flow-knowledge">
+    <h2>🔍 Flow 2: Wissen abfragen</h2>
+    <p class="flow-desc">Familienmitglieder können Fragen über Omas Geschichten stellen und erhalten narrative Antworten mit Quellenangaben.</p>
+
+    <a href="prototypes/ask.html" class="screen-preview" data-testid="preview-ask">
+      <div class="preview-icon">🔍</div>
+      <div class="preview-title">→ Fragen-Prototyp öffnen</div>
+      <div class="preview-desc">Interaktive Demo der Wissensabfrage</div>
+    </a>
+
+    <div class="step">
+      <div class="step-number">1</div>
+      <div class="step-content">
+        <h3>Frageseite öffnen</h3>
+        <p>Navigation zu „Fragen" über die Menüleiste. Die Seite zeigt ein großes Suchfeld mit „Was möchten Sie wissen?" und Beispiel-Chips darunter.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-number">2</div>
+      <div class="step-content">
+        <h3>Frage eingeben</h3>
+        <p>Die Nutzerin tippt eine Frage ein oder klickt auf einen Beispiel-Chip wie „Was weißt du über Onkel Hans?". Dann auf „Fragen" klicken oder Enter drücken.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-number">3</div>
+      <div class="step-content">
+        <h3>Suche läuft</h3>
+        <p>Ein Lade-Indikator zeigt: „⏳ Suche in Omas Geschichten…". Im Hintergrund durchsucht die KI alle Entitäten und Gesprächsnachrichten.</p>
+        <div class="highlight-box">
+          <div class="label">API-Aufruf</div>
+          <code>POST /api/stories/ask</code> → Narrative Antwort aus Omas Geschichten zusammengestellt.
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-number">4</div>
+      <div class="step-content">
+        <h3>Antwort lesen</h3>
+        <p>Die Antwort erscheint als warmer, erzählender Text — zusammengesetzt aus Omas eigenen Worten und Details. Darunter stehen Quellenangaben mit Datum und Auszug.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-number">5</div>
+      <div class="step-content">
+        <h3>Quellen erkunden</h3>
+        <p>Jede Quelle zeigt das Datum des Gesprächs und einen Auszug. „→ Gespräch ansehen" führt zum vollständigen Transkript.</p>
+        <a href="prototypes/transcript.html" class="screen-link" data-testid="walkthrough-link-transcript">📝 Transkript-Prototyp ansehen</a>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-number">6</div>
+      <div class="step-content">
+        <h3>Keine Ergebnisse</h3>
+        <p>Falls keine Informationen gefunden werden: „Dazu hat Oma leider noch nichts erzählt. Vielleicht können Sie sie beim nächsten Gespräch danach fragen!"</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FLOW 3: History Browsing ===== -->
+  <section class="flow-section" id="flow-history">
+    <h2>📖 Flow 3: Gesprächsverlauf durchstöbern</h2>
+    <p class="flow-desc">Vergangene Gespräche durchsuchen, Transkripte lesen und erkannte Entitäten sehen.</p>
+
+    <a href="prototypes/history.html" class="screen-preview" data-testid="preview-history">
+      <div class="preview-icon">📖</div>
+      <div class="preview-title">→ Verlauf-Prototyp öffnen</div>
+      <div class="preview-desc">Interaktive Demo der Gesprächsliste</div>
+    </a>
+
+    <div class="step">
+      <div class="step-number">1</div>
+      <div class="step-content">
+        <h3>Verlaufsseite öffnen</h3>
+        <p>Navigation zu „Verlauf". Alle vergangenen Gespräche werden als Karten angezeigt — sortiert nach Datum, neuestes zuerst.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-number">2</div>
+      <div class="step-content">
+        <h3>Gespräch auswählen</h3>
+        <p>Jede Karte zeigt: Datum (z. B. „15. Januar 2025"), Zusammenfassung, Nachrichtenanzahl und Dauer. Klick öffnet das Transkript.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-number">3</div>
+      <div class="step-content">
+        <h3>Transkript lesen</h3>
+        <p>Das vollständige Gespräch mit Zeitstempeln und Rollenbezeichnungen (👵 Oma / 🤖 KI-Begleiterin). Am oberen Rand steht eine Zusammenfassung der Sitzung.</p>
+        <a href="prototypes/transcript.html" class="screen-link" data-testid="walkthrough-link-transcript-2">📝 Transkript-Prototyp ansehen</a>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-number">4</div>
+      <div class="step-content">
+        <h3>Entitäten entdecken</h3>
+        <p>Unter Omas Nachrichten erscheinen farbige Chips für erkannte Entitäten: 👤 Personen (blau), 📍 Orte (grün), 📆 Jahre (amber), ⭐ Ereignisse (lila).</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-number">5</div>
+      <div class="step-content">
+        <h3>Zurück zur Liste</h3>
+        <p>„← Zurück zum Verlauf" navigiert zurück zur Gesprächsliste.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FLOW 4: Timeline ===== -->
+  <section class="flow-section" id="flow-timeline">
+    <h2>📅 Flow 4: Zeitstrahl erkunden</h2>
+    <p class="flow-desc">Die Abdeckung von Omas Lebensgeschichte über die Jahrzehnte visualisieren und Lücken erkennen.</p>
+
+    <a href="prototypes/timeline.html" class="screen-preview" data-testid="preview-timeline">
+      <div class="preview-icon">📅</div>
+      <div class="preview-title">→ Zeitstrahl-Prototyp öffnen</div>
+      <div class="preview-desc">Interaktive Demo der Jahrzehnt-Übersicht</div>
+    </a>
+
+    <div class="step">
+      <div class="step-number">1</div>
+      <div class="step-content">
+        <h3>Zeitstrahl ansehen</h3>
+        <p>Die Seite zeigt Balken für jedes Jahrzehnt von den 1930ern bis 2020ern. Die Farben zeigen: grün (gut abgedeckt), amber (wenig), grau (leer).</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-number">2</div>
+      <div class="step-content">
+        <h3>Lücken erkennen</h3>
+        <p>Jahrzehnte mit wenigen oder keinen Geschichten sind mit „wenig erzählt" gekennzeichnet. Diese Lücken können beim nächsten Gespräch gefüllt werden.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-number">3</div>
+      <div class="step-content">
+        <h3>Jahrzehnt-Details aufklappen</h3>
+        <p>Klick auf ein Jahrzehnt öffnet ein Detail-Panel mit allen Entitäten aus dieser Dekade — Personen, Orte, Jahre und Ereignisse als Karten.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-number">4</div>
+      <div class="step-content">
+        <h3>Leeres Jahrzehnt</h3>
+        <p>Bei einem leeren Jahrzehnt: „Noch keine Geschichten aus diesem Jahrzehnt. 💛 Fragen Sie Oma beim nächsten Gespräch!"</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-number">5</div>
+      <div class="step-content">
+        <h3>Handeln</h3>
+        <p>Zurück zur Gesprächsseite navigieren, um ein neues Gespräch zu starten. Die KI wird automatisch nach unterrepräsentierten Jahrzehnten fragen.</p>
+        <a href="prototypes/conversation.html" class="screen-link" data-testid="walkthrough-link-conversation">💬 Gespräch starten</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <a href="prototypes/index.html" data-testid="walkthrough-back-to-index">← Zurück zur Übersicht</a>
+</footer>
+
+<script>
+// Highlight active nav item on scroll
+const sections = document.querySelectorAll('.flow-section');
+const navLinks = document.querySelectorAll('.flow-nav a');
+
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      navLinks.forEach(l => l.classList.remove('active'));
+      const activeLink = document.querySelector('.flow-nav a[href="#' + entry.target.id + '"]');
+      if (activeLink) activeLink.classList.add('active');
+    }
+  });
+}, { rootMargin: '-100px 0px -50% 0px' });
+
+sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
