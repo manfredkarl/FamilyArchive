@@ -14,13 +14,6 @@ services:
     project: ./src/web
     host: containerapp
     language: ts
-  docs:
-    project: .
-    host: containerapp
-    language: py
-    docker:
-      path: ./docs.Dockerfile
-      context: .
 resources:
   api:
     type: host.containerapp
@@ -30,9 +23,6 @@ resources:
     uses:
       - api
     port: 3000
-  docs:
-    type: host.containerapp
-    port: 8080
 hooks:
   predeploy:
     posix:
