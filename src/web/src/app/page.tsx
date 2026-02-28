@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useChat } from './hooks/useChat';
 import { useVoice } from './hooks/useVoice';
+import { useVoiceLive } from './hooks/useVoiceLive';
 import VoiceIndicator from './components/VoiceIndicator';
 
 export default function Home() {
@@ -19,12 +20,15 @@ export default function Home() {
     fetchLastSummary,
   } = useChat();
   const [input, setInput] = useState('');
+  const [textMode, setTextMode] = useState(false);
 
+  // VoiceLive hook (primary voice mode)
+  const voiceLive = useVoiceLive();
+
+  // Legacy browser-based voice (fallback for text-chat sessions)
   const handleVoiceTranscript = useCallback(async (text: string): Promise<string> => {
-    // Send transcript via the same API path, return the AI response text
     const trimmed = text.trim();
     if (!trimmed) return '';
-
     const res = await fetch(
       `/api/stories/sessions/${sessionId}/messages`,
       {
@@ -44,7 +48,7 @@ export default function Home() {
 
   const {
     voiceState,
-    interimText,
+    interimText: legacyInterimText,
     isSupported: voiceSupported,
     permissionDenied,
     noGermanVoiceNotice,
@@ -57,7 +61,8 @@ export default function Home() {
     onSessionEnd: handleVoiceSessionEnd,
   });
 
-  const voiceActive = voiceState !== 'idle' && voiceState !== 'error';
+  const legacyVoiceActive = voiceState !== 'idle' && voiceState !== 'error';
+  const voiceLiveActive = voiceLive.state !== 'idle' && voiceLive.state !== 'error';
 
   useEffect(() => {
     if (!sessionId) {
@@ -65,12 +70,23 @@ export default function Home() {
     }
   }, [sessionId, fetchLastSummary]);
 
-  // Stop voice when session ends
+  // Stop legacy voice when session ends
   useEffect(() => {
     if (!sessionId && voiceState !== 'idle') {
       stopListening();
     }
   }, [sessionId, voiceState, stopListening]);
+
+  // ---------- handlers ----------
+
+  const handleStartVoice = useCallback(() => {
+    setTextMode(false);
+    voiceLive.startSession();
+  }, [voiceLive]);
+
+  const handleEndVoice = useCallback(() => {
+    voiceLive.endSession();
+  }, [voiceLive]);
 
   const handleSend = () => {
     if (input.trim()) {
@@ -101,6 +117,10 @@ export default function Home() {
 
   const micDisabled = voiceState === 'processing' || voiceState === 'thinking';
 
+  // ============================================================
+  // RENDER
+  // ============================================================
+
   return (
     <main
       className="flex flex-col items-center px-6"
@@ -113,121 +133,8 @@ export default function Home() {
         position: 'relative',
       }}
     >
-      {/* Unsupported browser banner */}
-      {sessionId && !voiceSupported && (
-        <div
-          data-testid="voice-unsupported-banner"
-          role="alert"
-          style={{
-            backgroundColor: '#FEF3C7',
-            border: '2px solid #D97706',
-            borderRadius: '12px',
-            padding: '12px 16px',
-            marginBottom: '12px',
-            width: '100%',
-            fontSize: '16px',
-            color: '#92400E',
-            textAlign: 'center',
-          }}
-        >
-          Für Sprachgespräche empfehlen wir Chrome
-        </div>
-      )}
-
-      {/* Hidden banner container for supported browsers (e2e test anchor) */}
-      {sessionId && voiceSupported && (
-        <div data-testid="voice-unsupported-banner" style={{ display: 'none' }} />
-      )}
-
-      {/* No German voice notice */}
-      {noGermanVoiceNotice && (
-        <div
-          role="status"
-          style={{
-            backgroundColor: '#FEF3C7',
-            border: '2px solid #D97706',
-            borderRadius: '12px',
-            padding: '12px 16px',
-            marginBottom: '12px',
-            width: '100%',
-            fontSize: '16px',
-            color: '#92400E',
-            textAlign: 'center',
-          }}
-        >
-          Deutsche Stimme nicht verfügbar — Standardstimme wird verwendet.
-        </div>
-      )}
-
-      {/* Permission denied modal */}
-      <div
-        data-testid="mic-permission-modal"
-        style={{ display: permissionDenied ? 'flex' : 'none' }}
-      >
-        {permissionDenied && (
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Mikrofon-Zugriff"
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: 'rgba(0,0,0,0.5)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 1000,
-            }}
-          >
-            <div
-              style={{
-                backgroundColor: '#FFFBEB',
-                borderRadius: '16px',
-                padding: '32px',
-                maxWidth: '480px',
-                width: '90%',
-                textAlign: 'center',
-              }}
-            >
-              <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎤</div>
-              <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#451A03', marginBottom: '12px' }}>
-                Mikrofon-Zugriff benötigt
-              </h2>
-              <p style={{ fontSize: '18px', color: '#78350F', lineHeight: 1.6, marginBottom: '8px' }}>
-                Mikrofon-Zugriff wurde verweigert.
-              </p>
-              <p style={{ fontSize: '16px', color: '#92400E', lineHeight: 1.6, marginBottom: '24px' }}>
-                Bitte erlauben Sie den Zugriff in den Browser-Einstellungen:
-                Klicken Sie auf das Schloss-Symbol 🔒 in der Adressleiste →
-                Berechtigungen → Mikrofon → Erlauben.
-              </p>
-              <button
-                onClick={dismissPermissionModal}
-                style={{
-                  backgroundColor: '#D97706',
-                  color: '#FFFFFF',
-                  fontSize: '18px',
-                  fontWeight: 600,
-                  padding: '16px 32px',
-                  borderRadius: '12px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  minWidth: '48px',
-                  minHeight: '48px',
-                }}
-              >
-                Über Tastatur schreiben
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Error banner */}
-      {error && (
+      {/* ---- Error banner ---- */}
+      {(error || voiceLive.errorMessage) && (
         <div
           role="alert"
           style={{
@@ -243,9 +150,11 @@ export default function Home() {
             gap: '12px',
           }}
         >
-          <span style={{ fontSize: '18px', color: '#991B1B' }}>{error}</span>
+          <span style={{ fontSize: '18px', color: '#991B1B' }}>
+            {error || voiceLive.errorMessage}
+          </span>
           <button
-            onClick={clearError}
+            onClick={() => { clearError(); }}
             style={{
               backgroundColor: '#EF4444',
               color: '#FFFFFF',
@@ -265,20 +174,24 @@ export default function Home() {
         </div>
       )}
 
-      {!sessionId ? (
-        <div className="flex flex-col items-center justify-center" style={{ flex: 1, paddingTop: '80px' }}>
+      {/* ================================================================
+          SCREEN 1: Before any session — welcome + start voice
+         ================================================================ */}
+      {!voiceLiveActive && !sessionId && (
+        <div className="flex flex-col items-center justify-center" style={{ flex: 1, paddingTop: '60px' }}>
           <h1
             style={{
               fontFamily: "Georgia, 'Times New Roman', Palatino, serif",
-              fontSize: '36px',
+              fontSize: '40px',
               fontWeight: 700,
               color: '#451A03',
-              marginBottom: '16px',
+              marginBottom: '12px',
+              textAlign: 'center',
             }}
           >
-            Omas Geschichten 💛
+            💛 Omas Geschichten
           </h1>
-          <p style={{ fontSize: '20px', color: '#78350F', marginBottom: '32px' }}>
+          <p style={{ fontSize: '20px', color: '#78350F', marginBottom: '40px', textAlign: 'center' }}>
             Erzählen Sie mir Ihre Geschichte.
           </p>
 
@@ -289,7 +202,7 @@ export default function Home() {
                 backgroundColor: '#FEF3C7',
                 borderRadius: '12px',
                 padding: '16px 20px',
-                marginBottom: '24px',
+                marginBottom: '32px',
                 maxWidth: '600px',
                 width: '100%',
               }}
@@ -303,37 +216,269 @@ export default function Home() {
             </div>
           )}
 
+          {/* Primary: Start voice session */}
           <button
-            onClick={startSession}
-            disabled={isLoading}
+            onClick={handleStartVoice}
             style={{
               backgroundColor: '#D97706',
               color: '#FFFFFF',
-              fontSize: '18px',
-              fontWeight: 600,
-              padding: '16px 32px',
-              borderRadius: '12px',
+              fontSize: '22px',
+              fontWeight: 700,
+              padding: '20px 48px',
+              borderRadius: '16px',
               border: 'none',
-              cursor: isLoading ? 'not-allowed' : 'pointer',
-              opacity: isLoading ? 0.5 : 1,
+              cursor: 'pointer',
               minWidth: '48px',
               minHeight: '48px',
+              boxShadow: '0 4px 14px rgba(217, 119, 6, 0.4)',
             }}
           >
-            {isLoading ? 'Wird gestartet...' : 'Gespräch starten'}
+            🎙️ Gespräch starten
+          </button>
+          <p style={{ fontSize: '16px', color: '#92400E', marginTop: '16px', textAlign: 'center' }}>
+            Drücken Sie den Knopf und erzählen Sie einfach
+          </p>
+
+          {/* Small text-mode fallback */}
+          <button
+            onClick={() => { setTextMode(true); startSession(); }}
+            disabled={isLoading}
+            style={{
+              marginTop: '32px',
+              background: 'none',
+              border: 'none',
+              color: '#92400E',
+              fontSize: '15px',
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              textDecoration: 'underline',
+              opacity: isLoading ? 0.5 : 0.7,
+            }}
+          >
+            ⌨️ Lieber über Tastatur schreiben
           </button>
         </div>
-      ) : (
+      )}
+
+      {/* ================================================================
+          SCREEN 2: VoiceLive session active (PRIMARY voice mode)
+         ================================================================ */}
+      {voiceLiveActive && (
+        <div className="flex flex-col items-center w-full" style={{ flex: 1, paddingBottom: '24px' }}>
+          {/* Large voice indicator */}
+          <VoiceIndicator voiceState={voiceLive.state} interimText={voiceLive.interimText} large />
+
+          {/* Live transcript */}
+          <div
+            data-testid="voice-transcript-list"
+            style={{
+              flex: 1,
+              width: '100%',
+              overflowY: 'auto',
+              maxHeight: '45vh',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+              marginTop: '16px',
+              marginBottom: '24px',
+              paddingRight: '8px',
+            }}
+          >
+            {voiceLive.transcripts.map((t) => (
+              <div
+                key={t.id}
+                style={{
+                  alignSelf: t.role === 'user' ? 'flex-end' : 'flex-start',
+                  backgroundColor: t.role === 'user' ? '#D97706' : '#FEF3C7',
+                  color: t.role === 'user' ? '#FFFFFF' : '#451A03',
+                  padding: '12px 16px',
+                  borderRadius:
+                    t.role === 'user'
+                      ? '16px 16px 4px 16px'
+                      : '16px 16px 16px 4px',
+                  maxWidth: '80%',
+                  fontSize: '18px',
+                  lineHeight: 1.5,
+                  opacity: t.isFinal ? 1 : 0.6,
+                }}
+              >
+                <span style={{ fontWeight: 600, fontSize: '14px', display: 'block', marginBottom: '4px' }}>
+                  {t.role === 'user' ? 'Oma' : 'KI'}
+                </span>
+                {t.text}
+              </div>
+            ))}
+          </div>
+
+          {/* Controls */}
+          <div className="flex flex-col items-center" style={{ gap: '12px', width: '100%' }}>
+            <button
+              onClick={handleEndVoice}
+              style={{
+                backgroundColor: '#92400E',
+                color: '#FFFFFF',
+                fontSize: '18px',
+                fontWeight: 600,
+                padding: '16px 32px',
+                borderRadius: '12px',
+                border: 'none',
+                cursor: 'pointer',
+                minWidth: '48px',
+                minHeight: '48px',
+              }}
+            >
+              Gespräch beenden
+            </button>
+
+            {/* Toggle to text mode */}
+            <button
+              onClick={() => {
+                handleEndVoice();
+                setTextMode(true);
+                startSession();
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#92400E',
+                fontSize: '14px',
+                cursor: 'pointer',
+                textDecoration: 'underline',
+                opacity: 0.7,
+              }}
+            >
+              ⌨️ Über Tastatur
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ================================================================
+          SCREEN 3: Text chat session (fallback mode)
+         ================================================================ */}
+      {sessionId && !voiceLiveActive && (
         <div className="flex flex-col w-full" style={{ flex: 1, paddingBottom: '24px' }}>
-          {/* Voice indicator */}
-          {voiceActive && (
-            <VoiceIndicator voiceState={voiceState} interimText={interimText} />
+          {/* Unsupported browser banner */}
+          {!voiceSupported && (
+            <div
+              data-testid="voice-unsupported-banner"
+              role="alert"
+              style={{
+                backgroundColor: '#FEF3C7',
+                border: '2px solid #D97706',
+                borderRadius: '12px',
+                padding: '12px 16px',
+                marginBottom: '12px',
+                width: '100%',
+                fontSize: '16px',
+                color: '#92400E',
+                textAlign: 'center',
+              }}
+            >
+              Für Sprachgespräche empfehlen wir Chrome
+            </div>
           )}
-          {/* Hidden voice indicator for idle (e2e anchor) */}
-          {!voiceActive && (
+
+          {/* Hidden banner container for supported browsers (e2e test anchor) */}
+          {voiceSupported && (
+            <div data-testid="voice-unsupported-banner" style={{ display: 'none' }} />
+          )}
+
+          {/* No German voice notice */}
+          {noGermanVoiceNotice && (
+            <div
+              role="status"
+              style={{
+                backgroundColor: '#FEF3C7',
+                border: '2px solid #D97706',
+                borderRadius: '12px',
+                padding: '12px 16px',
+                marginBottom: '12px',
+                width: '100%',
+                fontSize: '16px',
+                color: '#92400E',
+                textAlign: 'center',
+              }}
+            >
+              Deutsche Stimme nicht verfügbar — Standardstimme wird verwendet.
+            </div>
+          )}
+
+          {/* Permission denied modal */}
+          <div
+            data-testid="mic-permission-modal"
+            style={{ display: permissionDenied ? 'flex' : 'none' }}
+          >
+            {permissionDenied && (
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-label="Mikrofon-Zugriff"
+                style={{
+                  position: 'fixed',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundColor: 'rgba(0,0,0,0.5)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 1000,
+                }}
+              >
+                <div
+                  style={{
+                    backgroundColor: '#FFFBEB',
+                    borderRadius: '16px',
+                    padding: '32px',
+                    maxWidth: '480px',
+                    width: '90%',
+                    textAlign: 'center',
+                  }}
+                >
+                  <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎤</div>
+                  <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#451A03', marginBottom: '12px' }}>
+                    Mikrofon-Zugriff benötigt
+                  </h2>
+                  <p style={{ fontSize: '18px', color: '#78350F', lineHeight: 1.6, marginBottom: '8px' }}>
+                    Mikrofon-Zugriff wurde verweigert.
+                  </p>
+                  <p style={{ fontSize: '16px', color: '#92400E', lineHeight: 1.6, marginBottom: '24px' }}>
+                    Bitte erlauben Sie den Zugriff in den Browser-Einstellungen:
+                    Klicken Sie auf das Schloss-Symbol 🔒 in der Adressleiste →
+                    Berechtigungen → Mikrofon → Erlauben.
+                  </p>
+                  <button
+                    onClick={dismissPermissionModal}
+                    style={{
+                      backgroundColor: '#D97706',
+                      color: '#FFFFFF',
+                      fontSize: '18px',
+                      fontWeight: 600,
+                      padding: '16px 32px',
+                      borderRadius: '12px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      minWidth: '48px',
+                      minHeight: '48px',
+                    }}
+                  >
+                    Über Tastatur schreiben
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Voice indicator (legacy) */}
+          {legacyVoiceActive && (
+            <VoiceIndicator voiceState={voiceState} interimText={legacyInterimText} />
+          )}
+          {!legacyVoiceActive && (
             <div data-testid="voice-indicator" style={{ display: 'none' }} />
           )}
 
+          {/* Message list */}
           <div
             data-testid="message-list"
             className="flex flex-col"
@@ -408,9 +553,9 @@ export default function Home() {
                   role="button"
                   tabIndex={1}
                   aria-label={micLabel}
-                  aria-pressed={voiceActive}
+                  aria-pressed={legacyVoiceActive}
                   style={{
-                    backgroundColor: voiceActive ? '#16A34A' : '#D97706',
+                    backgroundColor: legacyVoiceActive ? '#16A34A' : '#D97706',
                     color: '#FFFFFF',
                     fontSize: '18px',
                     fontWeight: 600,
@@ -424,38 +569,36 @@ export default function Home() {
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  🎤 {voiceState === 'speaking' ? 'Unterbrechen' : voiceActive ? 'Mikro aus' : 'Mikro'}
+                  🎤 {voiceState === 'speaking' ? 'Unterbrechen' : legacyVoiceActive ? 'Mikro aus' : 'Mikro'}
                 </button>
               )}
 
               {/* End session button */}
-              {(voiceActive || sessionId) && (
-                <button
-                  onClick={() => { stopListening(); endSession(); }}
-                  disabled={isLoading}
-                  tabIndex={2}
-                  aria-label="Gespräch beenden"
-                  style={{
-                    backgroundColor: '#92400E',
-                    color: '#FFFFFF',
-                    fontSize: '18px',
-                    fontWeight: 600,
-                    padding: '16px 24px',
-                    borderRadius: '12px',
-                    border: 'none',
-                    cursor: isLoading ? 'not-allowed' : 'pointer',
-                    opacity: isLoading ? 0.5 : 1,
-                    minWidth: '48px',
-                    minHeight: '48px',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  Gespräch beenden
-                </button>
-              )}
+              <button
+                onClick={() => { stopListening(); endSession(); }}
+                disabled={isLoading}
+                tabIndex={2}
+                aria-label="Gespräch beenden"
+                style={{
+                  backgroundColor: '#92400E',
+                  color: '#FFFFFF',
+                  fontSize: '18px',
+                  fontWeight: 600,
+                  padding: '16px 24px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  cursor: isLoading ? 'not-allowed' : 'pointer',
+                  opacity: isLoading ? 0.5 : 1,
+                  minWidth: '48px',
+                  minHeight: '48px',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Gespräch beenden
+              </button>
             </div>
 
-            {/* Text input — always visible as fallback */}
+            {/* Text input */}
             <div className="flex" style={{ gap: '12px' }}>
               <input
                 type="text"

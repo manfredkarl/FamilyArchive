@@ -6,10 +6,12 @@ var builder = DistributedApplication.CreateBuilder(args);
 
 // API — Express.js / TypeScript backend
 var api = builder.AddJavaScriptApp("api", "./src/api")
+    .WithHttpEndpoint(port: 5001, env: "PORT")
     .WithHttpHealthCheck("/health");
 
 // Web — Next.js frontend
 builder.AddJavaScriptApp("web", "./src/web")
+    .WithHttpEndpoint(port: 3000, env: "PORT")
     .WithExternalHttpEndpoints()
     .WithReference(api)
     .WaitFor(api);
