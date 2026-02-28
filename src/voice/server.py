@@ -55,7 +55,14 @@ SYSTEM_PROMPT = (
 async def _send_json(ws, obj: dict) -> None:
     """Send a JSON message to the browser WebSocket."""
     try:
-        await ws.send(json.dumps(obj))
+        # Ensure all values are JSON-serializable (convert bytes to base64)
+        sanitized = {}
+        for k, v in obj.items():
+            if isinstance(v, bytes):
+                sanitized[k] = base64.b64encode(v).decode("ascii")
+            else:
+                sanitized[k] = v
+        await ws.send(json.dumps(sanitized))
     except websockets.exceptions.ConnectionClosed:
         pass
 
