@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "UserAuth",
-  description: "A secure user authentication demo application.",
+  title: "Omas Geschichten",
+  description: "Omas Geschichten — Erinnerungen bewahren und teilen.",
 };
 
 export default function RootLayout({
@@ -24,7 +24,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="de">
       <head>
         <script dangerouslySetInnerHTML={{ __html: `
           // Remove Next.js route announcer custom element to prevent aria-live conflicts
@@ -42,6 +42,7 @@ export default function RootLayout({
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        style={{ backgroundColor: '#FFFBEB' }}
       >
         <NavBar />
         {children}

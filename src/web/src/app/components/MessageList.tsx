@@ -28,7 +28,7 @@ export default function MessageList({ messages, isLoading }: MessageListProps) {
           key={msg.id}
           role={msg.role}
           content={msg.content}
-          isError={msg.isError}
+          isError={false}
         />
       ))}
       <TypingIndicator visible={isLoading} />
