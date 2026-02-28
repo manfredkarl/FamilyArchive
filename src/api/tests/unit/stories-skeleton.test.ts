@@ -35,9 +35,9 @@ describe('Stories Walking Skeleton', () => {
     });
   });
 
-  // AC 3: Message echo
+  // AC 3: Message response (fallback mode — no echo, warm German response)
   describe('POST /api/stories/sessions/:id/messages', () => {
-    it('should echo back the user message', async () => {
+    it('should return user message and assistant response', async () => {
       // First create a session
       const sessionRes = await request(app).post('/api/stories/sessions');
       const sessionId = sessionRes.body.session.id;
@@ -52,7 +52,7 @@ describe('Stories Walking Skeleton', () => {
       expect(res.body.userMessage.role).toBe('user');
       expect(res.body.userMessage.sessionId).toBe(sessionId);
       expect(res.body.assistantMessage).toBeDefined();
-      expect(res.body.assistantMessage.content).toContain('Echo: Hello');
+      expect(res.body.assistantMessage.content.length).toBeGreaterThan(0);
       expect(res.body.assistantMessage.role).toBe('assistant');
       expect(res.body.assistantMessage.sessionId).toBe(sessionId);
     });
@@ -109,7 +109,7 @@ describe('Stories Walking Skeleton', () => {
     });
   });
 
-  // Additional: GET /api/stories/sessions (list sessions stub)
+  // Additional: GET /api/stories/sessions (list sessions)
   describe('GET /api/stories/sessions', () => {
     it('should return empty list when no sessions exist', async () => {
       const res = await request(app).get('/api/stories/sessions');

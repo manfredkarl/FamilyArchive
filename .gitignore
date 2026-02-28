@@ -43,3 +43,6 @@ specs/ui/prototypes/
 
 # Aspire
 .aspire/
+
+# Data (story sessions JSON files)
+data/

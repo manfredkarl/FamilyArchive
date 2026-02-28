@@ -12,16 +12,38 @@ export function useChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [lastSummary, setLastSummary] = useState<string | null>(null);
   const sessionIdRef = useRef<string | null>(null);
+
+  const fetchLastSummary = useCallback(async () => {
+    try {
+      const res = await fetch('/api/stories/last-summary');
+      if (res.ok) {
+        const data = await res.json();
+        setLastSummary(data.summary);
+      }
+    } catch {
+      // Ignore errors fetching summary
+    }
+  }, []);
 
   const startSession = useCallback(async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const res = await fetch('/api/stories/sessions', { method: 'POST' });
-      if (!res.ok) throw new Error('Failed to create session');
+      if (!res.ok) {
+        if (res.status === 503) {
+          setError('Der KI-Dienst ist gerade nicht erreichbar. Bitte versuchen Sie es erneut.');
+          return;
+        }
+        throw new Error('Failed to create session');
+      }
       const data = await res.json();
       sessionIdRef.current = data.session.id;
       setSessionId(data.session.id);
+      setLastSummary(null);
       setMessages([
         {
           id: `welcome-${Date.now()}`,
@@ -30,13 +52,7 @@ export function useChat() {
         },
       ]);
     } catch {
-      setMessages([
-        {
-          id: `error-${Date.now()}`,
-          role: 'assistant',
-          content: 'Verbindung zum Server fehlgeschlagen. Bitte versuchen Sie es erneut.',
-        },
-      ]);
+      setError('Verbindung zum Server fehlgeschlagen. Bitte versuchen Sie es erneut.');
     } finally {
       setIsLoading(false);
     }
@@ -53,6 +69,7 @@ export function useChat() {
     };
     setMessages((prev) => [...prev, userMsg]);
     setIsLoading(true);
+    setError(null);
 
     try {
       const res = await fetch(
@@ -64,6 +81,10 @@ export function useChat() {
         },
       );
       if (!res.ok) {
+        if (res.status === 503) {
+          setError('Der KI-Dienst ist gerade nicht erreichbar. Bitte versuchen Sie es erneut.');
+          return;
+        }
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || 'Failed to send message');
       }
@@ -75,18 +96,59 @@ export function useChat() {
       };
       setMessages((prev) => [...prev, assistantMsg]);
     } catch {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `error-${Date.now()}`,
-          role: 'assistant',
-          content: 'Der KI-Dienst ist gerade nicht erreichbar. Bitte versuchen Sie es erneut.',
-        },
-      ]);
+      setError('Der KI-Dienst ist gerade nicht erreichbar. Bitte versuchen Sie es erneut.');
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  return { messages, isLoading, sessionId, startSession, sendMessage };
+  const endSession = useCallback(async () => {
+    if (!sessionIdRef.current) return;
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch(
+        `/api/stories/sessions/${sessionIdRef.current}/end`,
+        { method: 'POST' },
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to end session');
+      }
+      const data = await res.json();
+      sessionIdRef.current = null;
+      setSessionId(null);
+      setMessages([]);
+      if (data.session?.summary) {
+        setLastSummary(data.session.summary);
+      }
+    } catch {
+      setError('Fehler beim Beenden des Gesprächs. Bitte versuchen Sie es erneut.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
+
+  const retryLastAction = useCallback(() => {
+    setError(null);
+  }, []);
+
+  return {
+    messages,
+    isLoading,
+    sessionId,
+    error,
+    lastSummary,
+    startSession,
+    sendMessage,
+    endSession,
+    clearError,
+    retryLastAction,
+    fetchLastSummary,
+  };
 }

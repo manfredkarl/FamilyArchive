@@ -1,11 +1,28 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useChat } from './hooks/useChat';
 
 export default function Home() {
-  const { messages, isLoading, sessionId, startSession, sendMessage } = useChat();
+  const {
+    messages,
+    isLoading,
+    sessionId,
+    error,
+    lastSummary,
+    startSession,
+    sendMessage,
+    endSession,
+    clearError,
+    fetchLastSummary,
+  } = useChat();
   const [input, setInput] = useState('');
+
+  useEffect(() => {
+    if (!sessionId) {
+      fetchLastSummary();
+    }
+  }, [sessionId, fetchLastSummary]);
 
   const handleSend = () => {
     if (input.trim()) {
@@ -32,6 +49,45 @@ export default function Home() {
         margin: '0 auto',
       }}
     >
+      {/* Error banner */}
+      {error && (
+        <div
+          role="alert"
+          style={{
+            backgroundColor: '#FEE2E2',
+            border: '2px solid #EF4444',
+            borderRadius: '12px',
+            padding: '16px 20px',
+            marginBottom: '16px',
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+          }}
+        >
+          <span style={{ fontSize: '18px', color: '#991B1B' }}>{error}</span>
+          <button
+            onClick={clearError}
+            style={{
+              backgroundColor: '#EF4444',
+              color: '#FFFFFF',
+              fontSize: '16px',
+              fontWeight: 600,
+              padding: '8px 16px',
+              borderRadius: '8px',
+              border: 'none',
+              cursor: 'pointer',
+              minWidth: '48px',
+              minHeight: '48px',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Erneut versuchen
+          </button>
+        </div>
+      )}
+
       {!sessionId ? (
         <div className="flex flex-col items-center justify-center" style={{ flex: 1, paddingTop: '80px' }}>
           <h1
@@ -48,6 +104,28 @@ export default function Home() {
           <p style={{ fontSize: '20px', color: '#78350F', marginBottom: '32px' }}>
             Erzählen Sie mir Ihre Geschichte.
           </p>
+
+          {/* Last session summary */}
+          {lastSummary && (
+            <div
+              style={{
+                backgroundColor: '#FEF3C7',
+                borderRadius: '12px',
+                padding: '16px 20px',
+                marginBottom: '24px',
+                maxWidth: '600px',
+                width: '100%',
+              }}
+            >
+              <p style={{ fontSize: '16px', color: '#92400E', fontWeight: 600, marginBottom: '8px' }}>
+                Letztes Gespräch:
+              </p>
+              <p style={{ fontSize: '18px', color: '#451A03', lineHeight: 1.6 }}>
+                {lastSummary}
+              </p>
+            </div>
+          )}
+
           <button
             onClick={startSession}
             disabled={isLoading}
@@ -147,6 +225,27 @@ export default function Home() {
               }}
             >
               ➤ Senden
+            </button>
+            <button
+              onClick={endSession}
+              disabled={isLoading}
+              aria-label="Gespräch beenden"
+              style={{
+                backgroundColor: '#92400E',
+                color: '#FFFFFF',
+                fontSize: '18px',
+                fontWeight: 600,
+                padding: '16px 24px',
+                borderRadius: '12px',
+                border: 'none',
+                cursor: isLoading ? 'not-allowed' : 'pointer',
+                opacity: isLoading ? 0.5 : 1,
+                minWidth: '48px',
+                minHeight: '48px',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Gespräch beenden
             </button>
           </div>
         </div>

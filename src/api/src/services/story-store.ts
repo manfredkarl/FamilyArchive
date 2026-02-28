@@ -1,9 +1,91 @@
 import type { StorySession, StoryMessage } from '../models/story.js';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
-const sessions = new Map<string, StorySession>();
-const messages = new Map<string, StoryMessage[]>();
+const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
+const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
+const MESSAGES_DIR = path.join(DATA_DIR, 'messages');
 
+// In-memory cache backed by JSON files
+let sessions = new Map<string, StorySession>();
+let messages = new Map<string, StoryMessage[]>();
 let idCounter = 0;
+let useFileStorage = false;
+
+function ensureDirs(): void {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+  if (!fs.existsSync(MESSAGES_DIR)) {
+    fs.mkdirSync(MESSAGES_DIR, { recursive: true });
+  }
+}
+
+function atomicWrite(filePath: string, data: string): void {
+  const tmpPath = filePath + '.tmp';
+  fs.writeFileSync(tmpPath, data, 'utf-8');
+  fs.renameSync(tmpPath, filePath);
+}
+
+function persistSessions(): void {
+  if (!useFileStorage) return;
+  ensureDirs();
+  const arr = Array.from(sessions.values());
+  atomicWrite(SESSIONS_FILE, JSON.stringify(arr, null, 2));
+}
+
+function persistMessages(sessionId: string): void {
+  if (!useFileStorage) return;
+  ensureDirs();
+  const msgs = messages.get(sessionId) ?? [];
+  const filePath = path.join(MESSAGES_DIR, `${sessionId}.json`);
+  atomicWrite(filePath, JSON.stringify(msgs, null, 2));
+}
+
+function loadFromDisk(): void {
+  if (!useFileStorage) return;
+  try {
+    if (fs.existsSync(SESSIONS_FILE)) {
+      const data = JSON.parse(fs.readFileSync(SESSIONS_FILE, 'utf-8')) as StorySession[];
+      sessions = new Map(data.map((s) => [s.id, s]));
+      // Restore idCounter from existing IDs
+      for (const s of data) {
+        const parts = s.id.split('_');
+        const num = parseInt(parts[parts.length - 1], 10);
+        if (!isNaN(num) && num > idCounter) idCounter = num;
+      }
+    }
+  } catch {
+    // Start fresh if file is corrupted
+  }
+
+  try {
+    if (fs.existsSync(MESSAGES_DIR)) {
+      const files = fs.readdirSync(MESSAGES_DIR).filter((f) => f.endsWith('.json'));
+      for (const file of files) {
+        const sessionId = file.replace('.json', '');
+        const data = JSON.parse(
+          fs.readFileSync(path.join(MESSAGES_DIR, file), 'utf-8'),
+        ) as StoryMessage[];
+        messages.set(sessionId, data);
+        // Restore idCounter from message IDs
+        for (const m of data) {
+          const parts = m.id.split('_');
+          const num = parseInt(parts[parts.length - 1], 10);
+          if (!isNaN(num) && num > idCounter) idCounter = num;
+        }
+      }
+    }
+  } catch {
+    // Start fresh if corrupted
+  }
+}
+
+export function initFileStorage(): void {
+  useFileStorage = true;
+  ensureDirs();
+  loadFromDisk();
+}
 
 function generateId(prefix: string): string {
   idCounter++;
@@ -22,6 +104,7 @@ export function createSession(): StorySession {
   };
   sessions.set(id, session);
   messages.set(id, []);
+  persistSessions();
   return session;
 }
 
@@ -29,10 +112,34 @@ export function getSession(id: string): StorySession | undefined {
   return sessions.get(id);
 }
 
+export function getSessionById(id: string): StorySession | undefined {
+  return sessions.get(id);
+}
+
 export function getAllSessions(): StorySession[] {
   return Array.from(sessions.values()).sort(
     (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime(),
   );
+}
+
+export function updateSession(id: string, updates: Partial<StorySession>): StorySession | undefined {
+  const session = sessions.get(id);
+  if (!session) return undefined;
+  Object.assign(session, updates);
+  sessions.set(id, session);
+  persistSessions();
+  return session;
+}
+
+export function endSession(id: string, summary: string | null): StorySession | undefined {
+  const session = sessions.get(id);
+  if (!session) return undefined;
+  session.endedAt = new Date().toISOString();
+  session.status = 'ended';
+  session.summary = summary;
+  sessions.set(id, session);
+  persistSessions();
+  return session;
 }
 
 export function addMessage(sessionId: string, role: 'user' | 'assistant', content: string): StoryMessage {
@@ -51,6 +158,8 @@ export function addMessage(sessionId: string, role: 'user' | 'assistant', conten
   sessionMessages.push(msg);
   messages.set(sessionId, sessionMessages);
   session.messageCount = sessionMessages.length;
+  persistSessions();
+  persistMessages(sessionId);
   return msg;
 }
 
@@ -59,7 +168,8 @@ export function getSessionMessages(sessionId: string): StoryMessage[] {
 }
 
 export function clearStoryStore(): void {
-  sessions.clear();
-  messages.clear();
+  sessions = new Map();
+  messages = new Map();
   idCounter = 0;
+  // Don't delete files during clear (used in tests with in-memory mode)
 }

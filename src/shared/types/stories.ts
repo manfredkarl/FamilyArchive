@@ -1,8 +1,8 @@
 export interface StorySession {
   id: string;
   startedAt: string;
-  endedAt?: string | null;
-  summary?: string | null;
+  endedAt: string | null;
+  summary: string | null;
   status: 'active' | 'ended';
   messageCount: number;
 }
@@ -27,4 +27,19 @@ export interface SendMessageRequest {
 export interface SendMessageResponse {
   userMessage: StoryMessage;
   assistantMessage: StoryMessage;
+}
+
+export interface EndSessionResponse {
+  session: StorySession;
+}
+
+export interface SessionListResponse {
+  sessions: StorySession[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface ErrorResponse {
+  error: string;
 }
