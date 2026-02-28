@@ -96,38 +96,46 @@ async def _voicelive_to_browser(browser_ws, vl_conn) -> None:
                 await _send_json(browser_ws, {"type": "status", "status": "listening"})
 
             elif evt_type == ServerEventType.RESPONSE_AUDIO_DELTA:
-                audio = event.delta if hasattr(event, 'delta') else None
-                if audio:
-                    await _send_json(browser_ws, {"type": "audio", "data": audio})
-                    await _send_json(browser_ws, {"type": "status", "status": "speaking"})
+                # Send audio as BINARY frame for low latency (not JSON-wrapped)
+                audio_b64 = event.delta if hasattr(event, 'delta') else None
+                if audio_b64:
+                    try:
+                        audio_bytes = base64.b64decode(audio_b64)
+                        await browser_ws.send(audio_bytes)
+                    except Exception:
+                        pass
 
             elif evt_type == ServerEventType.RESPONSE_AUDIO_TRANSCRIPT_DELTA:
                 text = event.delta if hasattr(event, 'delta') else ""
-                await _send_json(browser_ws, {
-                    "type": "transcript", "role": "assistant",
-                    "text": text, "isFinal": False,
-                })
+                if text:
+                    await _send_json(browser_ws, {
+                        "type": "transcript", "role": "assistant",
+                        "text": text, "isFinal": False,
+                    })
 
             elif evt_type == ServerEventType.RESPONSE_AUDIO_TRANSCRIPT_DONE:
                 text = event.transcript if hasattr(event, 'transcript') else ""
-                await _send_json(browser_ws, {
-                    "type": "transcript", "role": "assistant",
-                    "text": text, "isFinal": True,
-                })
+                if text:
+                    await _send_json(browser_ws, {
+                        "type": "transcript", "role": "assistant",
+                        "text": text, "isFinal": True,
+                    })
 
             elif evt_type == ServerEventType.CONVERSATION_ITEM_INPUT_AUDIO_TRANSCRIPTION_COMPLETED:
                 text = event.transcript if hasattr(event, 'transcript') else ""
-                await _send_json(browser_ws, {
-                    "type": "transcript", "role": "user",
-                    "text": text, "isFinal": True,
-                })
+                if text:
+                    await _send_json(browser_ws, {
+                        "type": "transcript", "role": "user",
+                        "text": text, "isFinal": True,
+                    })
 
             elif evt_type == ServerEventType.CONVERSATION_ITEM_INPUT_AUDIO_TRANSCRIPTION_DELTA:
                 text = event.delta if hasattr(event, 'delta') else ""
-                await _send_json(browser_ws, {
-                    "type": "transcript", "role": "user",
-                    "text": text, "isFinal": False,
-                })
+                if text:
+                    await _send_json(browser_ws, {
+                        "type": "transcript", "role": "user",
+                        "text": text, "isFinal": False,
+                    })
 
             elif evt_type == ServerEventType.INPUT_AUDIO_BUFFER_SPEECH_STARTED:
                 await _send_json(browser_ws, {"type": "status", "status": "listening"})
@@ -138,13 +146,12 @@ async def _voicelive_to_browser(browser_ws, vl_conn) -> None:
             elif evt_type == ServerEventType.RESPONSE_DONE:
                 await _send_json(browser_ws, {"type": "status", "status": "listening"})
 
-            elif evt_type == ServerEventType.RESPONSE_AUDIO_DONE:
-                pass  # Handled by RESPONSE_DONE
-
             elif evt_type == ServerEventType.ERROR:
                 msg = str(event.error) if hasattr(event, 'error') else str(event)
                 logger.error("VoiceLive error: %s", msg)
                 await _send_json(browser_ws, {"type": "error", "message": msg})
+            else:
+                logger.debug("Unhandled event: %s", evt_type)
 
     except websockets.exceptions.ConnectionClosed:
         logger.info("Browser WebSocket closed (VL→browser)")

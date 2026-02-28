@@ -236,6 +236,15 @@ export function useVoiceLive(): UseVoiceLiveReturn {
       };
 
       ws.onmessage = (ev: MessageEvent) => {
+        // Binary frame = raw PCM16 audio from VoiceLive
+        if (ev.data instanceof ArrayBuffer) {
+          playQueueRef.current.push(ev.data);
+          if (!isPlayingRef.current) playNextChunk();
+          if (stateRef.current !== 'speaking') setState('speaking');
+          return;
+        }
+
+        // Text frame = JSON control/transcript message
         if (typeof ev.data !== 'string') return;
         try {
           const msg = JSON.parse(ev.data);
@@ -244,10 +253,6 @@ export function useVoiceLive(): UseVoiceLiveReturn {
               if (msg.status === 'listening') setState('listening');
               else if (msg.status === 'thinking') setState('thinking');
               else if (msg.status === 'speaking') setState('speaking');
-              break;
-
-            case 'audio':
-              enqueueAudio(msg.data);
               break;
 
             case 'transcript': {
@@ -306,7 +311,7 @@ export function useVoiceLive(): UseVoiceLiveReturn {
       setState('error');
       cleanup();
     }
-  }, [cleanup, enqueueAudio, stopPlayback]);
+  }, [cleanup, stopPlayback]);
 
   // Cleanup on unmount
   useEffect(() => {
