@@ -37,6 +37,15 @@
         },
         "verification": { "status": "done", "regression": { "unit": { "pass": 40, "fail": 0 } } }
       }
+    },
+    "story-engine": {
+      "status": "done",
+      "steps": {
+        "tests": { "status": "done", "gherkinFiles": ["specs/features/story-engine.feature"], "vitestFiles": ["src/api/tests/unit/story-engine.test.ts"] },
+        "contracts": { "status": "done", "sharedTypes": ["src/shared/types/stories.ts"] },
+        "implementation": { "status": "done", "slices": { "api": { "status": "done", "lastTestRun": { "pass": 58, "fail": 0 } }, "web": { "status": "done" } } },
+        "verification": { "status": "done", "regression": { "unit": { "pass": 58, "fail": 0 } } }
+      }
     }
   },
   "humanGates": {
