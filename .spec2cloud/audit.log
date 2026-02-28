@@ -22,3 +22,5 @@
 [2026-02-28T12:05:00Z] phase=1a action=prd-review result=success description="PRD reviewed: added personas, error states, accessibility, edge cases, token budget management"
 [2026-02-28T12:05:00Z] phase=1a action=frd-generation result=success description="3 FRDs created: frd-stories.md (sessions, transcripts, AI orchestration), frd-voice.md (STT/TTS, state machine, accessibility), frd-knowledge.md (entity extraction, gap detection, knowledge queries)"
 [2026-02-28T12:05:00Z] phase=1a action=cleanup result=success description="Removed old FRDs (auth, profile, rbac) and feature files"
+[2026-02-28T12:14:00Z] phase=1a action=human-gate result=approved description="3 FRDs approved by human"
+[2026-02-28T12:14:00Z] phase=1b action=phase-start result=success description="Beginning UI/UX design — prototypes, screen map, design system"
