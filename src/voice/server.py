@@ -10,7 +10,16 @@ import sys
 from pathlib import Path
 
 import websockets
-from azure.ai.voicelive.aio import VoiceLiveClient
+from azure.ai.voicelive.aio import connect as voicelive_connect
+from azure.ai.voicelive.models import (
+    AzureStandardVoice,
+    InputAudioFormat,
+    Modality,
+    OutputAudioFormat,
+    RequestSession,
+    ServerEventType,
+    ServerVad,
+)
 from azure.identity.aio import DefaultAzureCredential
 from dotenv import load_dotenv
 
@@ -23,12 +32,9 @@ logger = logging.getLogger("voicelive-proxy")
 
 PORT = int(os.getenv("VOICELIVE_PORT", "5002"))
 
-ENDPOINT = os.getenv(
-    "AZURE_VOICELIVE_ENDPOINT",
-    (os.getenv("AZURE_OPENAI_ENDPOINT", "") + "/voicelive").lstrip("/"),
-)
+ENDPOINT = os.getenv("AZURE_VOICELIVE_ENDPOINT", os.getenv("AZURE_OPENAI_ENDPOINT", ""))
 MODEL = os.getenv("AZURE_VOICELIVE_MODEL", "gpt-4o")
-VOICE = os.getenv("AZURE_VOICELIVE_VOICE", "de-DE-AmalaNeural")
+VOICE_NAME = os.getenv("AZURE_VOICELIVE_VOICE", "de-DE-AmalaNeural")
 
 SYSTEM_PROMPT = (
     "Du bist eine warmherzige, geduldige KI-Begleiterin, die Oma dabei hilft, "
@@ -40,8 +46,6 @@ SYSTEM_PROMPT = (
     "(Wer? Wo? Wann? Wie hat sich das angefühlt?).\n"
     "- Unterbreche niemals — lass Oma in ihrem eigenen Tempo erzählen.\n"
     "- Fasse gelegentlich zusammen, was du gehört hast, um zu zeigen, dass du zuhörst.\n"
-    "- Wenn Oma abschweift, bringe sie sanft zum Thema zurück.\n"
-    "- Sei komfortabel mit Stille — nicht jede Pause braucht eine Antwort.\n"
     "- Halte deine Antworten kurz und herzlich (2-4 Sätze).\n"
     "- Frage nach verschiedenen Lebensjahrzehnten: Kindheit, Jugend, Erwachsenenalter.\n"
     "- Beziehe dich auf frühere Geschichten, wenn Oma etwas Verwandtes erzählt."
@@ -56,15 +60,14 @@ async def _send_json(ws, obj: dict) -> None:
         pass
 
 
-async def _browser_to_voicelive(browser_ws, vl_client) -> None:
+async def _browser_to_voicelive(browser_ws, vl_conn) -> None:
     """Forward audio from browser → VoiceLive."""
     try:
         async for message in browser_ws:
             if isinstance(message, bytes):
-                # Raw PCM16 audio from the browser
-                await vl_client.send_audio(message)
+                audio_b64 = base64.b64encode(message).decode("ascii")
+                await vl_conn.input_audio_buffer.append(audio=audio_b64)
             else:
-                # JSON control message
                 try:
                     data = json.loads(message)
                 except json.JSONDecodeError:
@@ -76,76 +79,63 @@ async def _browser_to_voicelive(browser_ws, vl_client) -> None:
         logger.info("Browser WebSocket closed (browser→VL)")
 
 
-async def _voicelive_to_browser(browser_ws, vl_client) -> None:
+async def _voicelive_to_browser(browser_ws, vl_conn) -> None:
     """Forward events from VoiceLive → browser."""
     try:
-        async for event in vl_client.receive_events():
-            event_type = getattr(event, "type", None) or type(event).__name__
+        async for event in vl_conn:
+            evt_type = event.type if hasattr(event, 'type') else type(event).__name__
 
-            # Audio delta — send base64 encoded PCM
-            if event_type in ("audio_delta", "AudioDelta"):
-                audio_bytes = getattr(event, "audio", None) or getattr(event, "data", None)
-                if audio_bytes:
-                    if isinstance(audio_bytes, str):
-                        b64 = audio_bytes
-                    else:
-                        b64 = base64.b64encode(audio_bytes).decode("ascii")
-                    await _send_json(browser_ws, {"type": "audio", "data": b64})
+            if evt_type == ServerEventType.SESSION_CREATED:
+                await _send_json(browser_ws, {"type": "status", "status": "listening"})
+
+            elif evt_type == ServerEventType.RESPONSE_AUDIO_DELTA:
+                audio = event.delta if hasattr(event, 'delta') else None
+                if audio:
+                    await _send_json(browser_ws, {"type": "audio", "data": audio})
                     await _send_json(browser_ws, {"type": "status", "status": "speaking"})
 
-            # Transcript (user or assistant, interim or final)
-            elif event_type in (
-                "transcript",
-                "Transcript",
-                "input_transcript",
-                "InputTranscript",
-                "output_transcript",
-                "OutputTranscript",
-                "TranscriptionUpdate",
-                "transcription_update",
-            ):
-                role = getattr(event, "role", None)
-                if role is None:
-                    # Infer role from event type name
-                    lower = event_type.lower()
-                    role = "user" if "input" in lower else "assistant"
-                text = getattr(event, "text", "") or getattr(event, "transcript", "") or ""
-                is_final = getattr(event, "is_final", True)
+            elif evt_type == ServerEventType.RESPONSE_AUDIO_TRANSCRIPT_DELTA:
+                text = event.delta if hasattr(event, 'delta') else ""
                 await _send_json(browser_ws, {
-                    "type": "transcript",
-                    "role": role,
-                    "text": text,
-                    "isFinal": is_final,
+                    "type": "transcript", "role": "assistant",
+                    "text": text, "isFinal": False,
                 })
 
-            # Session lifecycle
-            elif event_type in ("session_created", "SessionCreated", "session.created"):
+            elif evt_type == ServerEventType.RESPONSE_AUDIO_TRANSCRIPT_DONE:
+                text = event.transcript if hasattr(event, 'transcript') else ""
+                await _send_json(browser_ws, {
+                    "type": "transcript", "role": "assistant",
+                    "text": text, "isFinal": True,
+                })
+
+            elif evt_type == ServerEventType.CONVERSATION_ITEM_INPUT_AUDIO_TRANSCRIPTION_COMPLETED:
+                text = event.transcript if hasattr(event, 'transcript') else ""
+                await _send_json(browser_ws, {
+                    "type": "transcript", "role": "user",
+                    "text": text, "isFinal": True,
+                })
+
+            elif evt_type == ServerEventType.CONVERSATION_ITEM_INPUT_AUDIO_TRANSCRIPTION_DELTA:
+                text = event.delta if hasattr(event, 'delta') else ""
+                await _send_json(browser_ws, {
+                    "type": "transcript", "role": "user",
+                    "text": text, "isFinal": False,
+                })
+
+            elif evt_type == ServerEventType.INPUT_AUDIO_BUFFER_SPEECH_STARTED:
                 await _send_json(browser_ws, {"type": "status", "status": "listening"})
 
-            # Thinking / generating
-            elif event_type in (
-                "response_started",
-                "ResponseStarted",
-                "response.started",
-                "generation_started",
-            ):
+            elif evt_type == ServerEventType.RESPONSE_CREATED:
                 await _send_json(browser_ws, {"type": "status", "status": "thinking"})
 
-            # Response done — back to listening
-            elif event_type in (
-                "response_done",
-                "ResponseDone",
-                "response.done",
-                "audio_done",
-                "AudioDone",
-                "turn_complete",
-                "TurnComplete",
-            ):
+            elif evt_type == ServerEventType.RESPONSE_DONE:
                 await _send_json(browser_ws, {"type": "status", "status": "listening"})
 
-            # Error from VoiceLive
-            elif event_type in ("error", "Error"):
-                msg = getattr(event, "message", "") or str(event)
+            elif evt_type == ServerEventType.RESPONSE_AUDIO_DONE:
+                pass  # Handled by RESPONSE_DONE
+
+            elif evt_type == ServerEventType.ERROR:
+                msg = str(event.error) if hasattr(event, 'error') else str(event)
                 logger.error("VoiceLive error: %s", msg)
                 await _send_json(browser_ws, {"type": "error", "message": msg})
 
@@ -156,31 +146,36 @@ async def _voicelive_to_browser(browser_ws, vl_client) -> None:
         await _send_json(browser_ws, {"type": "error", "message": str(exc)})
 
 
-async def handle_connection(browser_ws, path: str = "/") -> None:
+async def handle_connection(browser_ws) -> None:
     """Handle a single browser WebSocket connection."""
-    logger.info("New connection on %s", path)
+    logger.info("New browser connection")
 
     credential = DefaultAzureCredential()
     try:
-        async with VoiceLiveClient(
+        session_config = RequestSession(
+            model=MODEL,
+            modalities=[Modality.AUDIO, Modality.TEXT],
+            instructions=SYSTEM_PROMPT,
+            voice=AzureStandardVoice(name=VOICE_NAME),
+            input_audio_format=InputAudioFormat.PCM16,
+            output_audio_format=OutputAudioFormat.PCM16,
+            input_audio_transcription={"model": "whisper-1"},
+            turn_detection=ServerVad(),
+        )
+
+        async with voicelive_connect(
             endpoint=ENDPOINT,
             credential=credential,
             model=MODEL,
-            system_message=SYSTEM_PROMPT,
-            voice=VOICE,
-            input_audio_format="pcm16",
-            input_audio_sample_rate=24000,
-            input_audio_channels=1,
-            output_audio_format="pcm16",
-            output_audio_sample_rate=24000,
-            output_audio_channels=1,
-            modalities=["audio", "text"],
-        ) as vl_client:
+        ) as vl_conn:
+            # Configure the session
+            await vl_conn.session.update(session=session_config)
             await _send_json(browser_ws, {"type": "status", "status": "listening"})
+            logger.info("VoiceLive session established")
 
             # Run both directions concurrently
-            b2v = asyncio.create_task(_browser_to_voicelive(browser_ws, vl_client))
-            v2b = asyncio.create_task(_voicelive_to_browser(browser_ws, vl_client))
+            b2v = asyncio.create_task(_browser_to_voicelive(browser_ws, vl_conn))
+            v2b = asyncio.create_task(_voicelive_to_browser(browser_ws, vl_conn))
 
             done, pending = await asyncio.wait(
                 [b2v, v2b], return_when=asyncio.FIRST_COMPLETED,
