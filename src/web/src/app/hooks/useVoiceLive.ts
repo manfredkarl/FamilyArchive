@@ -32,9 +32,12 @@ const VOICE_WS_URL =
     ? process.env.NEXT_PUBLIC_API_URL.replace(/^http/, 'ws') + '/api/voice'
     : 'ws://localhost:5001/api/voice';
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+
 const VL_SAMPLE_RATE = 24000;
 
-const SYSTEM_PROMPT = `Du bist eine warmherzige, geduldige KI-Begleiterin, die Oma dabei hilft, ihre Lebensgeschichten zu bewahren.
+function buildSystemPrompt(lastSummary: string | null): string {
+  const base = `Du bist eine warmherzige, geduldige KI-Begleiterin, die Oma dabei hilft, ihre Lebensgeschichten zu bewahren.
 
 Deine Regeln:
 - Sprich immer auf Deutsch, in einem warmen, respektvollen Ton.
@@ -42,7 +45,14 @@ Deine Regeln:
 - Stelle sanfte Nachfragen (Wer? Wo? Wann? Wie hat sich das angefühlt?).
 - Unterbreche niemals.
 - Halte deine Antworten kurz und herzlich (2-4 Sätze).
-- Frage nach verschiedenen Lebensjahrzehnten.`;
+- Frage nach verschiedenen Lebensjahrzehnten.
+- DU beginnst IMMER das Gespräch mit einer warmen Begrüßung und einer offenen Frage.`;
+
+  if (lastSummary) {
+    return base + `\n\nLETZTES GESPRÄCH (Zusammenfassung):\n${lastSummary}\n\nBeziehe dich auf das letzte Gespräch in deiner Begrüßung. Frage ob Oma dort weitermachen möchte oder eine andere Geschichte erzählen will.`;
+  }
+  return base + `\n\nDies ist das ERSTE Gespräch. Stelle dich warmherzig vor und frage Oma nach ihrer frühesten Erinnerung oder wo sie aufgewachsen ist.`;
+}
 
 /**
  * PCM16-capture AudioWorklet processor.
@@ -205,6 +215,19 @@ export function useVoiceLive(): UseVoiceLiveReturn {
     setErrorMessage(null);
     setState('connecting');
 
+    // Fetch last session summary for context
+    let lastSummary: string | null = null;
+    try {
+      const sessRes = await fetch(`${API_BASE}/api/stories/sessions?limit=1&offset=0`);
+      if (sessRes.ok) {
+        const data = await sessRes.json();
+        const last = data.sessions?.[0];
+        if (last?.summary) lastSummary = last.summary;
+      }
+    } catch { /* ignore — will just start fresh */ }
+
+    const systemPrompt = buildSystemPrompt(lastSummary);
+
     try {
       // 1. Get mic access (mono, noise/echo suppressed)
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -260,7 +283,7 @@ export function useVoiceLive(): UseVoiceLiveReturn {
                   type: 'session.update',
                   session: {
                     modalities: ['audio', 'text'],
-                    instructions: SYSTEM_PROMPT,
+                    instructions: systemPrompt,
                     voice: { name: 'de-DE-ConradNeural' },
                     input_audio_format: 'pcm16',
                     output_audio_format: 'pcm16',
@@ -272,9 +295,12 @@ export function useVoiceLive(): UseVoiceLiveReturn {
               break;
             }
 
-            // --- Session configured: start mic capture ---
+            // --- Session configured: trigger AI greeting then start mic ---
             case 'session.updated': {
-              // Now start forwarding mic audio
+              // Trigger the AI to speak first with a greeting
+              ws.send(JSON.stringify({ type: 'response.create' }));
+
+              // Start forwarding mic audio
               worklet.port.onmessage = (audioEv: MessageEvent) => {
                 if (ws.readyState === WebSocket.OPEN && audioEv.data instanceof ArrayBuffer) {
                   const b64 = pcm16ToBase64(audioEv.data);
