@@ -20,17 +20,17 @@ interface AzureOpenAIConfig {
 }
 
 const FALLBACK_WELCOME_FIRST =
-  'Hallo! Wie schön, dass Sie da sind. Ich bin Ihre KI-Begleiterin und würde so gerne Ihre Geschichten hören. Erzählen Sie mir doch — was ist Ihre früheste Erinnerung?';
+  'Hallo! Wie schön, dass du da bist. Ich bin deine KI-Begleiterin und würde so gerne deine Geschichten hören. Erzähl mir doch — was ist deine früheste Erinnerung?';
 
 const FALLBACK_WELCOME_RETURNING =
-  'Schön, dass Sie wieder da sind! Ich freue mich, mehr von Ihren Geschichten zu hören. Woran möchten Sie heute anknüpfen?';
+  'Schön, dass du wieder da bist! Ich freue mich, mehr von deinen Geschichten zu hören. Woran möchtest du heute anknüpfen?';
 
 const FALLBACK_RESPONSES = [
-  'Das klingt wunderbar! Erzählen Sie mir mehr darüber.',
+  'Das klingt wunderbar! Erzähl mir mehr darüber.',
   'Oh, wie interessant! Was ist dann passiert?',
-  'Das muss eine besondere Zeit gewesen sein. Können Sie mir noch mehr davon erzählen?',
-  'Vielen Dank fürs Teilen! Gibt es noch etwas, das Ihnen dazu einfällt?',
-  'Das ist eine schöne Erinnerung. Was hat das für Sie bedeutet?',
+  'Das muss eine besondere Zeit gewesen sein. Kannst du mir noch mehr davon erzählen?',
+  'Vielen Dank fürs Teilen! Gibt es noch etwas, das dir dazu einfällt?',
+  'Das ist eine schöne Erinnerung. Was hat das für dich bedeutet?',
 ];
 
 const FALLBACK_SUMMARY =

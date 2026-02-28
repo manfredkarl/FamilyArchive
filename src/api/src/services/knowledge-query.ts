@@ -7,7 +7,7 @@ Use ONLY the information provided below from Oma's own conversations. Do not inv
 
 If the provided information answers the question, compose a warm, narrative answer in German that weaves together Oma's own words and details. Reference specific stories naturally.
 
-If the provided information does NOT contain relevant details, respond: "Dazu hat Oma leider noch nichts erzählt. Vielleicht können Sie sie beim nächsten Gespräch danach fragen!"`;
+If the provided information does NOT contain relevant details, respond: "Dazu hat Oma leider noch nichts erzählt. Vielleicht kannst du sie beim nächsten Gespräch danach fragen!"`;
 
 export interface SourceReference {
   sessionId: string;
@@ -21,7 +21,7 @@ export async function answerKnowledgeQuery(
 ): Promise<{ answer: string; sources: SourceReference[] }> {
   if (!isOpenAIConfigured()) {
     return {
-      answer: 'Der KI-Dienst ist nicht konfiguriert. Bitte versuchen Sie es später erneut.',
+      answer: 'Der KI-Dienst ist nicht konfiguriert. Bitte versuch es später erneut.',
       sources: [],
     };
   }
@@ -62,7 +62,7 @@ export async function answerKnowledgeQuery(
 
   if (storyLines.length === 0) {
     return {
-      answer: 'Es wurden noch keine Geschichten gesammelt. Starten Sie ein Gespräch mit Oma, um Erinnerungen zu bewahren!',
+      answer: 'Es wurden noch keine Geschichten gesammelt. Starte ein Gespräch mit Oma, um Erinnerungen zu bewahren!',
       sources: [],
     };
   }

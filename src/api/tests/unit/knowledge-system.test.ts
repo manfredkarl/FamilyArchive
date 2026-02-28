@@ -11,7 +11,7 @@ vi.mock('../../src/services/openai-client.js', () => ({
   getFallbackWelcome: vi.fn((isFirst: boolean) =>
     isFirst
       ? 'Willkommen zum ersten Gespräch!'
-      : 'Schön, dass Sie wieder da sind!',
+      : 'Schön, dass du wieder da bist!',
   ),
   getFallbackResponse: vi.fn(() => 'Eine warme Antwort.'),
   getFallbackSummary: vi.fn(() => 'Zusammenfassung des Gesprächs.'),
@@ -53,7 +53,7 @@ describe('Knowledge System — Increment 3', () => {
 
   // Helper: create a session
   async function createTestSession() {
-    mockedChatCompletion.mockResolvedValueOnce('Hallo! Erzählen Sie mir eine Geschichte.');
+    mockedChatCompletion.mockResolvedValueOnce('Hallo! Erzähl mir eine Geschichte.');
     const res = await request(app).post('/api/stories/sessions');
     return res;
   }
@@ -65,7 +65,7 @@ describe('Knowledge System — Increment 3', () => {
       const sessionId = sessionRes.body.session.id;
 
       // Mock conversation response
-      mockedChatCompletion.mockResolvedValueOnce('Oh, Onkel Hans! Erzählen Sie mehr.');
+      mockedChatCompletion.mockResolvedValueOnce('Oh, Onkel Hans! Erzähl mehr.');
       // Mock extraction response
       mockedChatCompletion.mockResolvedValueOnce(JSON.stringify([
         { name: 'Onkel Hans', type: 'person', context: 'Omas Bruder in München', relationship: 'Bruder', decade: '1960s' },
@@ -247,6 +247,15 @@ describe('Knowledge System — Increment 3', () => {
       const sessionRes = await createTestSession();
       const sessionId = sessionRes.body.session.id;
 
+      // Send a user message so the knowledge query finds story data
+      mockedChatCompletion.mockResolvedValueOnce('Oh, Onkel Hans! Erzähl mehr.');
+      await request(app)
+        .post(`/api/stories/sessions/${sessionId}/messages`)
+        .send({ message: 'Mein Bruder Hans ist nach München gezogen.' });
+
+      // Wait for async extraction to settle
+      await new Promise((r) => setTimeout(r, 100));
+
       addEntities([
         makeEntity({
           name: 'Onkel Hans',
@@ -290,7 +299,7 @@ describe('Knowledge System — Increment 3', () => {
 
     it('should handle no matching entities gracefully', async () => {
       mockedChatCompletion.mockResolvedValueOnce(
-        'Dazu hat Oma leider noch nichts erzählt. Vielleicht können Sie sie beim nächsten Gespräch danach fragen!',
+        'Dazu hat Oma leider noch nichts erzählt. Vielleicht kannst du sie beim nächsten Gespräch danach fragen!',
       );
 
       const res = await request(app)

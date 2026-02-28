@@ -48,5 +48,5 @@ export function buildGapHint(turnCount: number): string | null {
   const target = emptyDecades.length > 0 ? emptyDecades[0] : thinDecades[0];
   if (!target) return null;
 
-  return `Die folgenden Jahrzehnte haben wenige oder keine Geschichten: ${target.decade} (${target.entityCount} Entitäten). Wenn es passt, frage sanft nach dieser Zeit. Formuliere die Frage warm, z.B.: "Sie haben noch nicht viel über die ${target.decade} erzählt — wie war das Leben damals für Sie?"`;
+  return `Die folgenden Jahrzehnte haben wenige oder keine Geschichten: ${target.decade} (${target.entityCount} Entitäten). Wenn es passt, frage sanft nach dieser Zeit. Formuliere die Frage warm, z.B.: "Du hast noch nicht viel über die ${target.decade} erzählt — wie war das Leben damals für dich?"`;
 }

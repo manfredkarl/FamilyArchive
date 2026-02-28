@@ -155,7 +155,7 @@ export function useVoice({ onTranscript, onSessionEnd }: UseVoiceOptions): UseVo
     silenceTimerRef.current = setTimeout(() => {
       if (voiceStateRef.current === 'listening') {
         setVoiceState('speaking');
-        speakText('Ich bin noch da — möchten Sie weiterzählen?', () => {
+        speakText('Ich bin noch da — möchtest du weitererzählen?', () => {
           if (voiceStateRef.current === 'speaking') {
             setVoiceState('listening');
             startSilenceTimers();
@@ -168,7 +168,7 @@ export function useVoice({ onTranscript, onSessionEnd }: UseVoiceOptions): UseVo
     longSilenceTimerRef.current = setTimeout(() => {
       if (voiceStateRef.current === 'listening' || voiceStateRef.current === 'speaking') {
         setVoiceState('speaking');
-        speakText('Es war schön, mit Ihnen zu sprechen. Bis zum nächsten Mal!', () => {
+        speakText('Es war schön, mit dir zu sprechen. Bis zum nächsten Mal!', () => {
           setVoiceState('idle');
           shouldRestartRef.current = false;
           if (recognitionRef.current) {
@@ -282,12 +282,12 @@ export function useVoice({ onTranscript, onSessionEnd }: UseVoiceOptions): UseVo
           break;
         case 'audio-capture':
           setVoiceState('error');
-          setErrorMessage('Mikrofon nicht gefunden. Bitte schließen Sie ein Mikrofon an.');
+          setErrorMessage('Mikrofon nicht gefunden. Bitte schließ ein Mikrofon an.');
           shouldRestartRef.current = false;
           break;
         case 'network':
           setVoiceState('error');
-          setErrorMessage('Spracherkennung nicht verfügbar. Bitte prüfen Sie Ihre Internetverbindung.');
+          setErrorMessage('Spracherkennung nicht verfügbar. Bitte prüf deine Internetverbindung.');
           shouldRestartRef.current = false;
           break;
         case 'aborted':

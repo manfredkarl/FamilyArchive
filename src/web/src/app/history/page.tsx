@@ -112,7 +112,7 @@ export default function HistoryPage() {
       {sessions.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '48px 0' }}>
           <p style={{ fontSize: '20px', color: '#78350F', marginBottom: '16px' }}>
-            Noch keine Gespräche — starten Sie das erste!
+            Noch keine Gespräche — starte das erste!
           </p>
           <Link
             href="/"

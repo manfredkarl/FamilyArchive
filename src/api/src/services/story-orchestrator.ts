@@ -221,12 +221,19 @@ export async function startNewSession(): Promise<{
 
   const allSessions = getAllSessions();
   const isFirstSession = allSessions.length === 0;
-  const previousSummaries = allSessions
-    .filter((s) => s.status === 'ended' && s.summary)
-    .map((s) => s.summary as string);
 
   const session = createSession();
-  const welcomeMessage = await generateWelcome(isFirstSession, previousSummaries);
+
+  // Use instant static welcome (no AI call) — much faster session start
+  // Voice sessions get their AI greeting via VoiceLive's response.create
+  const welcomeMessage = isFirstSession
+    ? 'Hallo! 💛 Wie schön, dass du da bist. Erzähl mir doch — was ist deine früheste Erinnerung?'
+    : (() => {
+        const lastSummary = allSessions.find((s) => s.status === 'ended' && s.summary)?.summary;
+        return lastSummary
+          ? `Schön, dass du wieder da bist! Letztes Mal haben wir darüber gesprochen: ${lastSummary.substring(0, 100)}... Möchtest du daran anknüpfen oder etwas anderes erzählen?`
+          : 'Schön, dass du wieder da bist! Worüber möchtest du heute erzählen?';
+      })();
 
   addMessage(session.id, 'assistant', welcomeMessage);
 

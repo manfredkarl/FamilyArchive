@@ -35,7 +35,7 @@ export function useChat() {
       const res = await fetch('/api/stories/sessions', { method: 'POST' });
       if (!res.ok) {
         if (res.status === 503) {
-          setError('Der KI-Dienst ist gerade nicht erreichbar. Bitte versuchen Sie es erneut.');
+          setError('Der KI-Dienst ist gerade nicht erreichbar. Bitte versuch es erneut.');
           return;
         }
         throw new Error('Failed to create session');
@@ -52,7 +52,7 @@ export function useChat() {
         },
       ]);
     } catch {
-      setError('Verbindung zum Server fehlgeschlagen. Bitte versuchen Sie es erneut.');
+      setError('Verbindung zum Server fehlgeschlagen. Bitte versuch es erneut.');
     } finally {
       setIsLoading(false);
     }
@@ -82,7 +82,7 @@ export function useChat() {
       );
       if (!res.ok) {
         if (res.status === 503) {
-          setError('Der KI-Dienst ist gerade nicht erreichbar. Bitte versuchen Sie es erneut.');
+          setError('Der KI-Dienst ist gerade nicht erreichbar. Bitte versuch es erneut.');
           return;
         }
         const body = await res.json().catch(() => ({}));
@@ -96,13 +96,13 @@ export function useChat() {
       };
       setMessages((prev) => [...prev, assistantMsg]);
     } catch {
-      setError('Der KI-Dienst ist gerade nicht erreichbar. Bitte versuchen Sie es erneut.');
+      setError('Der KI-Dienst ist gerade nicht erreichbar. Bitte versuch es erneut.');
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  const endSession = useCallback(async () => {
+  const endSession= useCallback(async () => {
     if (!sessionIdRef.current) return;
     setIsLoading(true);
     setError(null);
@@ -124,7 +124,7 @@ export function useChat() {
         setLastSummary(data.session.summary);
       }
     } catch {
-      setError('Fehler beim Beenden des Gesprächs. Bitte versuchen Sie es erneut.');
+      setError('Fehler beim Beenden des Gesprächs. Bitte versuch es erneut.');
     } finally {
       setIsLoading(false);
     }

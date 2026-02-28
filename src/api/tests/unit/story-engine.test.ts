@@ -10,7 +10,7 @@ vi.mock('../../src/services/openai-client.js', () => ({
   getFallbackWelcome: vi.fn((isFirst: boolean) =>
     isFirst
       ? 'Willkommen zum ersten Gespräch!'
-      : 'Schön, dass Sie wieder da sind!',
+      : 'Schön, dass du wieder da bist!',
   ),
   getFallbackResponse: vi.fn(() => 'Eine warme Antwort.'),
   getFallbackSummary: vi.fn(() => 'Zusammenfassung des Gesprächs.'),
@@ -36,7 +36,7 @@ describe('Story Engine — Increment 2', () => {
   // Helper: create a session with mocked AI welcome
   async function createTestSession() {
     mockedChatCompletion.mockResolvedValueOnce(
-      'Hallo! Erzählen Sie mir eine Geschichte.',
+      'Hallo! Erzähl mir eine Geschichte.',
     );
     const res = await request(app).post('/api/stories/sessions');
     return res;
@@ -46,7 +46,7 @@ describe('Story Engine — Increment 2', () => {
   describe('POST /api/stories/sessions — AI welcome', () => {
     it('should return AI-generated welcome message (first session)', async () => {
       mockedChatCompletion.mockResolvedValueOnce(
-        'Hallo! Schön, dass Sie da sind. Was möchten Sie heute erzählen?',
+        'Hallo! Schön, dass du da bist. Was möchtest du heute erzählen?',
       );
 
       const res = await request(app).post('/api/stories/sessions');
@@ -57,7 +57,7 @@ describe('Story Engine — Increment 2', () => {
       expect(res.body.session.status).toBe('active');
       expect(res.body.session.messageCount).toBe(1);
       expect(res.body.welcomeMessage).toBe(
-        'Hallo! Schön, dass Sie da sind. Was möchten Sie heute erzählen?',
+        'Hallo! Schön, dass du da bist. Was möchtest du heute erzählen?',
       );
       expect(mockedChatCompletion).toHaveBeenCalledTimes(1);
     });
@@ -79,7 +79,7 @@ describe('Story Engine — Increment 2', () => {
 
       // Second session — should get context from prior sessions
       mockedChatCompletion.mockResolvedValueOnce(
-        'Schön, dass Sie wieder da sind! Letztes Mal haben Sie mir vom Garten erzählt.',
+        'Schön, dass du wieder da bist! Letztes Mal hast du mir vom Garten erzählt.',
       );
       const res = await request(app).post('/api/stories/sessions');
 
@@ -95,7 +95,7 @@ describe('Story Engine — Increment 2', () => {
       const sessionId = sessionRes.body.session.id;
 
       mockedChatCompletion.mockResolvedValueOnce(
-        'Oh, ein Apfelbaum! Erzählen Sie mir mehr.',
+        'Oh, ein Apfelbaum! Erzähl mir mehr.',
       );
 
       const res = await request(app)
@@ -107,7 +107,7 @@ describe('Story Engine — Increment 2', () => {
         'Ich erinnere mich an einen Apfelbaum.',
       );
       expect(res.body.assistantMessage.content).toBe(
-        'Oh, ein Apfelbaum! Erzählen Sie mir mehr.',
+        'Oh, ein Apfelbaum! Erzähl mir mehr.',
       );
       expect(res.body.assistantMessage.role).toBe('assistant');
     });

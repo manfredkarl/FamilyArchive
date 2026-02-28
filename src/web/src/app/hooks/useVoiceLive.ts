@@ -406,7 +406,7 @@ export function useVoiceLive(): UseVoiceLiveReturn {
     } catch (err) {
       const msg =
         err instanceof DOMException && err.name === 'NotAllowedError'
-          ? 'Mikrofon-Zugriff wurde verweigert. Bitte erlauben Sie den Zugriff in den Browser-Einstellungen.'
+          ? 'Mikrofon-Zugriff wurde verweigert. Bitte erlaube den Zugriff in den Browser-Einstellungen.'
           : err instanceof Error
             ? err.message
             : 'Sprachsitzung konnte nicht gestartet werden.';

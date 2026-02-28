@@ -10,7 +10,7 @@ vi.mock('../../src/services/openai-client.js', () => ({
   getFallbackWelcome: vi.fn((isFirst: boolean) =>
     isFirst
       ? 'Willkommen zum ersten Gespräch!'
-      : 'Schön, dass Sie wieder da sind!',
+      : 'Schön, dass du wieder da bist!',
   ),
   getFallbackResponse: vi.fn(() => 'Eine warme Antwort.'),
   getFallbackSummary: vi.fn(() => 'Zusammenfassung des Gesprächs.'),
@@ -36,7 +36,7 @@ describe('History Browsing — Increment 4', () => {
   // Helper: create a session with mocked AI welcome
   async function createTestSession() {
     mockedChatCompletion.mockResolvedValueOnce(
-      'Hallo! Erzählen Sie mir eine Geschichte.',
+      'Hallo! Erzähl mir eine Geschichte.',
     );
     const res = await request(app).post('/api/stories/sessions');
     return res;
@@ -48,7 +48,7 @@ describe('History Browsing — Increment 4', () => {
     const sessionId = sessionRes.body.session.id;
 
     // Send a message
-    mockedChatCompletion.mockResolvedValueOnce('Das ist wunderbar! Erzählen Sie weiter.');
+    mockedChatCompletion.mockResolvedValueOnce('Das ist wunderbar! Erzähl weiter.');
     await request(app)
       .post(`/api/stories/sessions/${sessionId}/messages`)
       .send({ message: 'Ich erinnere mich an den Garten.' });
@@ -133,7 +133,7 @@ describe('History Browsing — Increment 4', () => {
       const sessionId = sessionRes.body.session.id;
 
       // Send messages
-      mockedChatCompletion.mockResolvedValueOnce('Wie schön! Erzählen Sie mir mehr.');
+      mockedChatCompletion.mockResolvedValueOnce('Wie schön! Erzähl mir mehr.');
       await request(app)
         .post(`/api/stories/sessions/${sessionId}/messages`)
         .send({ message: 'Es war ein warmer Sommer.' });

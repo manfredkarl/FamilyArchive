@@ -192,7 +192,7 @@ export default function Home() {
             💛 Omas Geschichten
           </h1>
           <p style={{ fontSize: '20px', color: '#78350F', marginBottom: '40px', textAlign: 'center' }}>
-            Erzählen Sie mir Ihre Geschichte.
+            Erzähl mir deine Geschichte.
           </p>
 
           {/* Last session summary */}
@@ -236,7 +236,7 @@ export default function Home() {
             🎙️ Gespräch starten
           </button>
           <p style={{ fontSize: '16px', color: '#92400E', marginTop: '16px', textAlign: 'center' }}>
-            Drücken Sie den Knopf und erzählen Sie einfach
+            Drück den Knopf und erzähl einfach
           </p>
 
           {/* Small text-mode fallback */}
@@ -444,8 +444,8 @@ export default function Home() {
                     Mikrofon-Zugriff wurde verweigert.
                   </p>
                   <p style={{ fontSize: '16px', color: '#92400E', lineHeight: 1.6, marginBottom: '24px' }}>
-                    Bitte erlauben Sie den Zugriff in den Browser-Einstellungen:
-                    Klicken Sie auf das Schloss-Symbol 🔒 in der Adressleiste →
+                    Bitte erlaube den Zugriff in den Browser-Einstellungen:
+                    Klick auf das Schloss-Symbol 🔒 in der Adressleiste →
                     Berechtigungen → Mikrofon → Erlauben.
                   </p>
                   <button
@@ -605,7 +605,7 @@ export default function Home() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ihre Nachricht..."
+                placeholder="Deine Nachricht..."
                 tabIndex={3}
                 disabled={isLoading || voiceState === 'thinking' || voiceState === 'speaking'}
                 style={{
