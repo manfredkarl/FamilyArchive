@@ -244,31 +244,8 @@ export function useVoiceLive(): UseVoiceLiveReturn {
       wsRef.current = ws;
 
       ws.onopen = () => {
-        // Send session.update to configure the session
-        ws.send(
-          JSON.stringify({
-            type: 'session.update',
-            session: {
-              modalities: ['audio', 'text'],
-              instructions: SYSTEM_PROMPT,
-              voice: { name: 'de-DE-AmalaNeural' },
-              input_audio_format: 'pcm16',
-              output_audio_format: 'pcm16',
-              input_audio_transcription: { model: 'whisper-1' },
-              turn_detection: { type: 'server_vad' },
-            },
-          }),
-        );
-
-        // Start forwarding mic audio as base64
-        worklet.port.onmessage = (ev: MessageEvent) => {
-          if (ws.readyState === WebSocket.OPEN && ev.data instanceof ArrayBuffer) {
-            const b64 = pcm16ToBase64(ev.data);
-            ws.send(JSON.stringify({ type: 'input_audio_buffer.append', audio: b64 }));
-          }
-        };
-
-        setState('listening');
+        // Don't send session.update yet — wait for session.created event
+        setState('connecting');
       };
 
       ws.onmessage = (ev: MessageEvent) => {
@@ -276,6 +253,37 @@ export function useVoiceLive(): UseVoiceLiveReturn {
         try {
           const msg = JSON.parse(ev.data);
           switch (msg.type) {
+            // --- Session created: NOW send configuration ---
+            case 'session.created': {
+              ws.send(
+                JSON.stringify({
+                  type: 'session.update',
+                  session: {
+                    modalities: ['audio', 'text'],
+                    instructions: SYSTEM_PROMPT,
+                    voice: { name: 'de-DE-AmalaNeural' },
+                    input_audio_format: 'pcm16',
+                    output_audio_format: 'pcm16',
+                    input_audio_transcription: { model: 'whisper-1' },
+                    turn_detection: { type: 'server_vad' },
+                  },
+                }),
+              );
+              break;
+            }
+
+            // --- Session configured: start mic capture ---
+            case 'session.updated': {
+              // Now start forwarding mic audio
+              worklet.port.onmessage = (audioEv: MessageEvent) => {
+                if (ws.readyState === WebSocket.OPEN && audioEv.data instanceof ArrayBuffer) {
+                  const b64 = pcm16ToBase64(audioEv.data);
+                  ws.send(JSON.stringify({ type: 'input_audio_buffer.append', audio: b64 }));
+                }
+              };
+              setState('listening');
+              break;
+            }
             // --- Audio playback ---
             case 'response.audio.delta': {
               const pcm16 = base64ToArrayBuffer(msg.delta);
