@@ -261,7 +261,7 @@ export function useVoiceLive(): UseVoiceLiveReturn {
                   session: {
                     modalities: ['audio', 'text'],
                     instructions: SYSTEM_PROMPT,
-                    voice: { name: 'de-DE-AmalaNeural' },
+                    voice: { name: 'de-DE-ConradNeural' },
                     input_audio_format: 'pcm16',
                     output_audio_format: 'pcm16',
                     input_audio_transcription: { model: 'whisper-1' },
