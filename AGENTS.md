@@ -22,6 +22,7 @@ You are monolithic: one process, one task per loop iteration, no multi-agent com
 **Sub-agent files:**
 - `.github/agents/spec-refinement.agent.md` — PRD/FRD review and refinement
 - `.github/agents/ui-ux-design.agent.md` — FRD → interactive HTML wireframe prototypes
+- `.github/agents/tech-stack-resolution.agent.md` — Inventory, research, and resolve all technologies
 - `.github/agents/e2e-generation.agent.md` — Flow walkthrough → Playwright e2e tests
 - `.github/agents/gherkin-generation.agent.md` — FRD → Gherkin scenarios
 - `.github/agents/test-generation.agent.md` — Gherkin → Cucumber step definitions + Vitest unit tests
@@ -40,7 +41,8 @@ Phase 0: Shell Setup          (one-time)
 Phase 1: Product Discovery    (one-time)
   ├── 1a: Spec Refinement     (PRD → FRDs)
   ├── 1b: UI/UX Design        (prototypes, design system, walkthroughs)
-  └── 1c: Increment Planning  (break FRDs into ordered vertical slices)
+  ├── 1c: Increment Planning  (break FRDs into ordered vertical slices)
+  └── 1d: Tech Stack Resolution (identify, research, decide every technology)
 Phase 2: Increment Delivery   (repeats for each increment)
   ├── Step 1: Test Scaffolding (E2E + Gherkin + BDD tests for THIS increment)
   ├── Step 2: Contracts        (API specs + shared types for THIS increment)
@@ -168,9 +170,99 @@ An increment is a cohesive unit of work that:
 
 **Exit condition:** `specs/increment-plan.md` exists with all increments defined and ordered. Human approves the plan.
 
-**Phase commit:** After human approval, commit per §4: `[phase-1] Product discovery complete — N FRDs, N screens, N increments planned`.
-
 **Human gate:** Yes. Present the increment plan with scope, ordering, and dependencies. Ask for approval.
+
+---
+
+#### Phase 1d: Tech Stack Resolution
+
+**Goal:** Every framework, library, service, and infrastructure component the application needs is identified, researched, decided upon, and documented — with clear instructions for how to use, wire, and deploy each one. By the end of this phase, there are **zero open technology questions** for the implementation phase.
+
+**Entry condition:** Phase 1c approved. Increment plan exists. All FRDs and UI/UX artifacts finalized.
+
+**Why this phase exists:**
+
+Implementation fails when agents encounter unknowns mid-flight: "Which database?", "How do I wire up caching?", "Which AI model for voice?", "What auth library?". These questions cause context switches, inconsistent decisions across increments, and wasted research time. Phase 1d resolves everything upfront so every increment can focus purely on building.
+
+**What gets resolved:**
+
+| Category | Examples |
+|----------|----------|
+| **Data storage** | Which database (Cosmos DB, PostgreSQL, SQLite)? Which data model? Connection patterns. |
+| **Caching** | Do we need cache? Redis, in-memory, CDN? Cache invalidation strategy. |
+| **AI / ML** | Which models (GPT-4o, GPT-5, etc.)? Azure OpenAI vs. GitHub Models? Agent framework (LangGraph)? |
+| **Voice / Speech** | Azure Speech, Azure Voice Live API? STT vs. TTS vs. real-time? |
+| **Authentication** | MSAL, NextAuth, Entra ID, API keys? Session management strategy. |
+| **Real-time** | WebSockets, Server-Sent Events, SignalR, polling? |
+| **Search** | Azure AI Search, full-text DB search, client-side filtering? |
+| **File storage** | Azure Blob Storage, local filesystem, CDN? |
+| **Messaging** | Event Grid, Service Bus, Event Hubs, direct HTTP? |
+| **Observability** | Application Insights, structured logging, custom metrics? |
+| **Infrastructure** | Container Apps, App Service, Static Web Apps? Scaling model? |
+| **Frontend libraries** | Component library (shadcn, Radix, custom)? State management? Form handling? |
+| **Backend libraries** | ORM (Prisma, Drizzle, raw SDK)? Validation (Zod, Joi)? Rate limiting? |
+
+**Tasks:**
+
+1. **Extract technology needs** — Scan all FRDs, UI prototypes, component inventory, and the increment plan. For each feature, list every technology, service, and capability it requires. Produce a raw inventory grouped by category.
+
+2. **Check existing knowledge** — For each technology in the inventory:
+   - Does a skill exist in `.github/skills/`?
+   - Are there instructions in `.github/copilot-instructions.md`?
+   - Is the technology already established in the shell template (check `package.json`, `infra/`)?
+   - Mark as ✅ **resolved** or ❓ **needs research**.
+
+3. **Research unresolved items** — For each item marked ❓, use the MCP research tools (see §12):
+   - Query **Microsoft Learn MCP** for Azure services and SDKs
+   - Query **Context7** for npm packages and framework docs
+   - Query **Azure Best Practices** for infrastructure decisions
+   - Query **DeepWiki** for library internals when evaluating fit
+   - Use **Web Search** for latest releases and community consensus
+   - If multiple viable options exist → prepare a comparison for the human
+
+4. **Present choices to human** — For each decision point where multiple valid options exist:
+   - Present a concise comparison table (option, pros, cons, cost, complexity)
+   - Recommend a default choice with rationale
+   - Ask human to choose (or accept the recommendation)
+
+5. **Document all decisions** — Create `specs/tech-stack.md` with the full resolved tech stack:
+   - Every technology/service with its purpose, version, and why it was chosen
+   - Wiring instructions (how to connect it — SDK patterns, env vars, config)
+   - Deployment instructions (Bicep resources, environment variables, managed identity)
+   - Key patterns to follow and anti-patterns to avoid
+   - Links to authoritative documentation
+
+6. **Create or update skills** — For each non-trivial technology:
+   - If a reusable pattern exists → create a skill in `.github/skills/`
+   - If instructions are needed project-wide → add to `.github/copilot-instructions.md`
+   - If an Azure service is involved → note the Bicep module needed in infra contract
+
+7. **Pre-populate infrastructure contract** — Create/update `specs/contracts/infra/resources.yaml` with ALL Azure resources needed across ALL increments (databases, caches, AI services, storage accounts, etc.). This becomes the master infrastructure plan.
+
+8. **Validate completeness** — Walk through each increment in the plan and verify:
+   - Every technology it needs is documented in `specs/tech-stack.md`
+   - Every Azure resource it needs is in the infrastructure contract
+   - Every library has a version pinned and usage instructions
+   - No increment will encounter an unresolved technology question
+
+**Exit condition:** All of the following exist and are approved:
+- `specs/tech-stack.md` — comprehensive tech stack document with all decisions, wiring, and deployment instructions
+- Updated `specs/contracts/infra/resources.yaml` — all Azure resources across all increments
+- Updated `.github/copilot-instructions.md` — project-specific technology instructions added
+- New skills in `.github/skills/` for non-trivial technologies (if applicable)
+
+**Phase commit:** After human approval, commit per §4: `[phase-1] Product discovery complete — N FRDs, N screens, N increments, tech stack resolved`.
+
+**Human gate:** Yes. Present:
+- The complete tech stack document with all decisions
+- Any choices made (with rationale)
+- Infrastructure resource plan
+- Skills created or updated
+- Confirmation that every increment's technology needs are covered
+
+Ask: "All technology decisions are documented. Approve to begin increment delivery, or provide feedback."
+
+**Delegate to:** `.github/agents/tech-stack-resolution.agent.md`
 
 ---
 
@@ -262,7 +354,7 @@ For increment N:
 **Entry condition:** Step 2 complete. Contracts in place.
 
 **Step 3.0: Research & Discovery (mandatory)**
-Before writing implementation code, invoke the `research-best-practices` skill. Inventory technologies needed, query MCP tools for current best practices, verify dependency versions.
+Before writing implementation code, consult `specs/tech-stack.md` for pre-resolved technology decisions. Then invoke the `research-best-practices` skill for any implementation-specific patterns not covered by the tech stack document. Verify dependency versions match what was specified in Phase 1d.
 
 **Step 3.0b: TypeScript LSP Setup (once per session)**
 Verify TypeScript Language Server is active. Use `ide-get_diagnostics` after every code change to catch type errors before running tests.
@@ -368,7 +460,14 @@ At the **end of every loop iteration**:
   "productDiscovery": {
     "specRefinement": { "status": "done", "frdCount": 5 },
     "uiuxDesign": { "status": "done", "screenCount": 12 },
-    "incrementPlanning": { "status": "done", "incrementCount": 4 }
+    "incrementPlanning": { "status": "done", "incrementCount": 4 },
+    "techStackResolution": {
+      "status": "done",
+      "categoriesResolved": 8,
+      "decisionsPresented": 3,
+      "skillsCreated": [],
+      "techStackDoc": "specs/tech-stack.md"
+    }
   },
   "incrementPlan": [
     {
@@ -462,6 +561,7 @@ At the **end of every loop iteration**:
     "discovery-specs-approved": true,
     "discovery-uiux-approved": true,
     "discovery-plan-approved": true,
+    "discovery-techstack-approved": true,
     "increment-walking-skeleton-tests-gherkin-approved": true,
     "increment-walking-skeleton-impl-approved": true,
     "increment-walking-skeleton-shipped": true,
@@ -539,7 +639,7 @@ After a step or phase completes (and human gate approved, where applicable):
 | Event | Commit Message |
 |-------|---------------|
 | Shell setup | `[phase-0] Shell setup complete` |
-| Product discovery | `[phase-1] Product discovery complete — N FRDs, N screens, N increments` |
+| Product discovery | `[phase-1] Product discovery complete — N FRDs, N screens, N increments, tech stack resolved` |
 | Increment tests | `[increment] {id}/tests — test scaffolding complete` |
 | Increment contracts | `[increment] {id}/contracts — contracts generated` |
 | Increment slice | `[impl] {id}/{slice} — slice green` |
@@ -598,6 +698,7 @@ Human gates exist at these points:
 - Phase 1a exit (FRD approval)
 - Phase 1b exit (UI/UX approval)
 - Phase 1c exit (increment plan approval)
+- Phase 1d exit (tech stack resolution approval)
 - Phase 2, Step 1 mid-point (Gherkin approval, per increment)
 - Phase 2, Step 3 exit (implementation PR review, per increment)
 - Phase 2, Step 4 exit (deployment verification, per increment)
@@ -611,6 +712,7 @@ When you reach a human gate:
    - Phase 1a: List all FRDs with their key decisions
    - Phase 1b: List screen map, design system, and prototype links per FRD
    - Phase 1c: List the increment plan with ordering, scope, and dependencies
+   - Phase 1d: List tech stack decisions, infrastructure plan, created skills
    - Step 1 (per increment): List Gherkin scenario counts, e2e flow coverage
    - Step 3 (per increment): Link to the PR, list test results (pass/fail counts)
    - Step 4 (per increment): Deployment URL, smoke test results, docs status
@@ -701,6 +803,7 @@ On every CLI session start, check for existing state.
    - Run the test suite appropriate for the current position:
      - Phase 1b: verify prototype HTML files exist in specs/ui/prototypes/
      - Phase 1c: verify `specs/increment-plan.md` exists
+     - Phase 1d: verify `specs/tech-stack.md` exists, skills referenced are present
      - Step 1 (tests): verify test files exist and compile
      - Step 2 (contracts): verify contract files exist and shared types compile
      - Step 3 (implementation): run test suite for current slice, compare results to state
@@ -871,6 +974,7 @@ shells/nextjs-typescript/
 │   │   ├── walkthrough.html      # Replayable visual walkthrough
 │   │   └── prototypes/           # Interactive HTML wireframes
 │   ├── increment-plan.md             # Ordered increment plan (Phase 1c)
+│   ├── tech-stack.md                 # Resolved tech stack with wiring & deploy instructions (Phase 1d)
 │   ├── features/                     # .feature files consumed by Cucumber.js
 │   └── contracts/                    # Contracts generated per increment (Step 2)
 │       ├── api/                      # API contracts per feature (OpenAPI-style YAML)
@@ -883,6 +987,7 @@ shells/nextjs-typescript/
 │   ├── agents/                       # Custom Copilot agents (spec2cloud sub-agents)
 │   │   ├── spec-refinement.agent.md  # PRD/FRD review and refinement
 │   │   ├── ui-ux-design.agent.md     # FRD → interactive HTML wireframe prototypes
+│   │   ├── tech-stack-resolution.agent.md # Inventory, research, resolve all technologies
 │   │   ├── e2e-generation.agent.md   # Flow walkthrough → Playwright e2e tests
 │   │   ├── gherkin-generation.agent.md # FRD → Gherkin scenarios
 │   │   ├── test-generation.agent.md  # Gherkin → Cucumber step defs + Vitest tests
@@ -964,9 +1069,10 @@ Before writing implementation code, agents **must** research current best practi
 
 ### When Research Applies
 
-- **Step 3 (Implementation):** Mandatory before the first slice of each feature (via `research-best-practices` skill)
-- **Step 4 (Deployment):** Query Azure Best Practices and Microsoft Learn before writing infra/Bicep
-- **Any phase:** When introducing a technology, SDK, or pattern not already established in the project
+- **Phase 1d (Tech Stack Resolution):** Comprehensive research across ALL technologies needed by the application — the primary research phase
+- **Step 3 (Implementation):** Targeted research for specific implementation patterns within the current increment (via `research-best-practices` skill). Consult `specs/tech-stack.md` first — most questions should already be answered.
+- **Step 4 (Deployment):** Query Azure Best Practices and Microsoft Learn before writing infra/Bicep. Consult `specs/tech-stack.md` for pre-resolved infrastructure decisions.
+- **Any phase:** When introducing a technology, SDK, or pattern not covered by `specs/tech-stack.md`
 
 ### Caching
 

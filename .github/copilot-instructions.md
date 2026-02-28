@@ -32,6 +32,7 @@ is driven by automated tests generated from those specifications.
 ```
 specs/          → Specifications (PRD, FRDs, Gherkin)
 specs/contracts/→ Contracts (API specs per feature, infrastructure resources)
+specs/tech-stack.md → Resolved tech stack (all technology decisions, wiring, deployment)
 e2e/            → Playwright end-to-end tests (integration slice)
 tests/          → Cucumber.js BDD tests (integration slice)
 src/shared/     → Contract types shared between API and Web
@@ -61,7 +62,8 @@ infra/          → Azure infrastructure (Bicep)
 The agent MUST pause and ask for human approval at these points:
 - After FRD review (before UI/UX design)
 - After UI/UX design (before increment planning)
-- After increment plan approval (before first increment)
+- After increment plan approval (before tech stack resolution)
+- After tech stack resolution (before first increment) — technology choices must be approved
 - Per increment: after Gherkin generation (before BDD test scaffolding)
 - Per increment: after implementation (before deployment) — via PR review
 - Per increment: after deployment (verify it works)
