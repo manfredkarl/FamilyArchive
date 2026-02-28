@@ -1,5 +1,5 @@
 {
-  "currentPhase": "setup",
+  "currentPhase": "discovery",
   "productDiscovery": {
     "specRefinement": { "status": "pending" },
     "uiuxDesign": { "status": "pending" },
@@ -10,7 +10,7 @@
   "currentIncrement": null,
   "increments": {},
   "humanGates": {
-    "phase0-approved": false,
+    "phase0-approved": true,
     "discovery-specs-approved": false,
     "discovery-uiux-approved": false,
     "discovery-plan-approved": false,

@@ -17,3 +17,5 @@
 [2026-02-28T11:40:00Z] phase=0 action=reset result=success description="Repository reset to clean shell template for OmasApp — family story preservation app"
 [2026-02-28T11:40:00Z] phase=0 action=prd-rewritten result=success description="PRD rewritten for OmasApp: 7 user stories (US-10 to US-16), voice-first family story preservation"
 [2026-02-28T11:40:00Z] phase=0 action=scaffolding-verified result=success description="Shell structure verified: 20/22 items present, created missing specs/ui/ and specs/contracts/ directories"
+[2026-02-28T12:00:00Z] phase=0 action=human-gate result=approved description="Phase 0 approved by human"
+[2026-02-28T12:00:00Z] phase=1a action=phase-start result=success description="Beginning spec refinement — PRD review and FRD generation for OmasApp"
