@@ -1,139 +1,177 @@
-# Product Requirements Document — UserAuth Basic App
+# Product Requirements Document — OmasApp (Family Story Preservation)
 
 ## 1. Overview
 
-A minimal full-stack web application with user authentication. Users can register with a username and password, log in, and view their own profile page. The app consists of a Next.js frontend and an Express.js backend API.
+OmasApp is a conversational AI application that helps families preserve their stories and memories through natural voice conversations with grandma ("Oma"). The app uses Azure's voice and AI services to conduct warm, patient interviews — capturing stories, extracting key details (people, places, dates, events), and building a searchable family knowledge base over time. Family members can later ask "What do you know about X?" and receive answers drawn from Oma's own words.
 
 ## 2. Goals
 
-- Provide a simple, secure user registration and login flow.
-- Allow authenticated users to view their profile information.
-- Establish a clean separation between frontend (Next.js) and backend (Express API).
+- Provide a frictionless, voice-first interface that feels like a natural conversation — not technology.
+- Capture and permanently store every story Oma shares, with full transcripts.
+- Automatically extract entities (people, years, places, events) and organize them by decade.
+- Detect gaps in the family timeline and gently prompt Oma to share more about under-represented periods.
+- Allow anyone in the family to ask questions and retrieve knowledge from the collected stories.
+- Resume conversations seamlessly — always remembering what was already shared.
 
 ## 3. User Stories
 
-### US-1: User Registration
-**As a** new user,  
-**I want to** register with a username and password,  
-**So that** I can create an account and access the application.
+### US-10: Start a Voice Conversation
+**As a** family member,  
+**I want to** start a voice conversation with the story-preservation AI,  
+**So that** Oma can simply talk and share her memories hands-free.
 
 **Acceptance Criteria:**
-- User provides a unique username (3–30 characters, alphanumeric and underscores only).
-- User provides a password (minimum 8 characters).
-- If the username is already taken, an error message is displayed.
-- If registration succeeds, the user is redirected to the login page with a success message.
-- Passwords are hashed before storage (never stored in plain text).
+- The main page shows a large, prominent "Gespräch starten" (Start Conversation) button.
+- Clicking the button requests microphone access and begins listening.
+- The AI greets Oma warmly and asks an open-ended question to start.
+- If this is a returning session, the AI references previous stories and continues from where they left off.
+- Visual indicators show the current state: listening, thinking, or speaking.
 
-### US-2: User Login
-**As a** registered user,  
-**I want to** log in with my username and password,  
-**So that** I can access my profile.
-
-**Acceptance Criteria:**
-- User provides their username and password on the login page.
-- If credentials are valid, the user is authenticated and redirected to their profile page.
-- If credentials are invalid, an error message is displayed ("Invalid username or password").
-- Authentication uses a session token (JWT) stored in an HTTP-only cookie.
-- The login page is accessible at `/login`.
-
-### US-3: View Profile
-**As an** authenticated user,  
-**I want to** view my profile page,  
-**So that** I can see my account information.
+### US-11: Tell a Story
+**As** Oma,  
+**I want to** talk freely about my memories while the AI listens patiently,  
+**So that** my stories are captured exactly as I tell them.
 
 **Acceptance Criteria:**
-- The profile page displays the user's username and the date their account was created.
-- The profile page is accessible at `/profile`.
-- If a non-authenticated user tries to access `/profile`, they are redirected to `/login`.
+- The AI listens continuously without interrupting.
+- After Oma pauses, the AI acknowledges what was said and asks a gentle follow-up question.
+- The full transcript is saved after each exchange.
+- Oma can speak for as long as she wants — there is no time limit per turn.
+- The conversation can also happen via text input as a fallback.
 
-### US-4: Role-Based Access
-**As an** administrator,  
-**I want to** have elevated privileges compared to regular users,  
-**So that** I can access an admin dashboard to view all registered users.
-
-**Acceptance Criteria:**
-- Two roles exist: `user` (default) and `admin`.
-- New registrations are assigned the `user` role by default.
-- The first registered user is automatically assigned the `admin` role.
-- Admin users can access `/admin` to see a list of all registered users (username, role, createdAt).
-- Regular users who try to access `/admin` see a 403 Forbidden page.
-- The user's role is displayed on their profile page.
-
-### US-5: User Logout
-**As an** authenticated user,  
-**I want to** log out,  
-**So that** I can end my session securely.
+### US-12: Extract Entities from Stories
+**As the** system,  
+**I want to** automatically extract people, years, places, and events from each story,  
+**So that** the family knowledge base grows structured and searchable.
 
 **Acceptance Criteria:**
-- A logout button is visible on the profile page.
-- Clicking logout clears the session token and redirects the user to the login page.
-- After logout, accessing `/profile` redirects to `/login`.
+- After each conversation turn, entities are extracted and stored.
+- Entity types: person (with relationship if stated), year, place, event.
+- Each entity links back to its source message and session.
+- Entities include the decade they relate to (inferred from years or context).
 
-### US-6: Navigation Awareness
-**As an** authenticated user,  
-**I want to** see navigation links appropriate to my role,  
-**So that** I can easily access the pages available to me.
+### US-13: Detect Decade Gaps
+**As the** AI interviewer,  
+**I want to** notice when certain decades have few stories,  
+**So that** I can gently ask Oma to share more about those periods.
 
 **Acceptance Criteria:**
-- All authenticated users see links to Profile and Logout in the navigation.
-- Admin users additionally see a link to the Admin dashboard.
-- Non-authenticated users see links to Login and Register.
+- The system tracks story coverage by decade (1930s through 2020s).
+- When a decade has fewer than 3 entities, it is flagged as "thin."
+- The AI naturally works gap-filling questions into the conversation flow.
+- Gap questions are warm and specific (e.g., "You haven't told me much about the 1960s — what was daily life like for you then?").
+
+### US-14: Ask "What Do You Know About...?"
+**As a** family member,  
+**I want to** ask "What do you know about Uncle Hans?" or any topic,  
+**So that** I can retrieve compiled knowledge from Oma's stories.
+
+**Acceptance Criteria:**
+- A search/ask interface accepts natural language questions.
+- The system searches all stored stories and entities for relevant information.
+- The AI composes a warm, narrative answer using Oma's own words and details.
+- The answer references which conversations the information came from.
+- If no information exists, the AI says so honestly and suggests asking Oma about it.
+
+### US-15: Resume a Conversation
+**As a** family member,  
+**I want to** stop and restart conversations at any time,  
+**So that** the AI always remembers everything that was already shared.
+
+**Acceptance Criteria:**
+- When a conversation ends, a summary is generated and stored.
+- When a new conversation starts, all previous stories, entities, and summaries are loaded.
+- The AI references specific details from past conversations in its welcome-back greeting.
+- No stories or context are ever lost between sessions.
+
+### US-16: View Conversation History
+**As a** family member,  
+**I want to** browse past conversations and see extracted highlights,  
+**So that** I can review what stories have been captured.
+
+**Acceptance Criteria:**
+- A session list shows all past conversations with date, duration, and summary.
+- Clicking a session shows the full transcript.
+- Extracted entities are displayed alongside the transcript as highlights.
+- A timeline/decade view shows coverage across Oma's life.
 
 ## 4. Functional Requirements
 
-### FR-1: Authentication API
+### FR-10: Story Conversation API
 | Endpoint | Method | Description |
 |---|---|---|
-| `/api/auth/register` | POST | Register a new user. Body: `{ username, password }`. Returns 201 on success, 409 if username taken, 400 on validation error. |
-| `/api/auth/login` | POST | Authenticate a user. Body: `{ username, password }`. Returns 200 with JWT cookie on success, 401 on failure. |
-| `/api/auth/logout` | POST | Clear the session cookie. Returns 200. |
-| `/api/auth/me` | GET | Return the current authenticated user's profile. Returns 200 with `{ username, role, createdAt }`, or 401 if not authenticated. |
-| `/api/admin/users` | GET | Return a list of all users (admin only). Returns 200 with `[{ username, role, createdAt }]`, or 401/403. |
+| `/api/stories/sessions` | POST | Create a new conversation session. Returns session ID and welcome message. |
+| `/api/stories/sessions` | GET | List all conversation sessions with summaries. |
+| `/api/stories/sessions/:id/messages` | POST | Send a message in a session. Body: `{ message }`. Returns AI response. |
+| `/api/stories/sessions/:id/messages` | GET | Get all messages for a session. |
+| `/api/stories/sessions/:id/end` | POST | End a session (triggers summary generation). |
+| `/api/stories/ask` | POST | Ask a knowledge query. Body: `{ question }`. Returns compiled answer. |
+| `/api/stories/entities` | GET | Get all extracted entities. |
+| `/api/stories/entities/search` | GET | Search entities. Query param: `q`. |
+| `/api/stories/coverage` | GET | Get decade coverage and gap analysis. |
 
-### FR-2: Data Model
-- **User**: `{ id: string (UUID), username: string (unique), passwordHash: string, role: 'user' | 'admin', createdAt: Date }`
-- Storage: In-memory store (no external database required for this MVP).
+### FR-11: Voice Pipeline
+- Real-time speech-to-text via browser Web Speech API (MVP) or Azure Speech SDK (production).
+- Text-to-speech for AI responses via browser SpeechSynthesis API (MVP) or Azure TTS (production).
+- WebSocket endpoint (`/api/voice`) for future Azure VoiceLive integration.
+- Voice state management: idle → listening → thinking → speaking → listening.
 
-### FR-3: Frontend Pages
+### FR-12: Data Model
+- **Session**: `{ id, startedAt, endedAt, summary, messageCount }`
+- **Message**: `{ id, sessionId, role, content, timestamp }`
+- **Entity**: `{ id, name, type, context, relationship, decade, sourceMessageId, sourceSessionId, createdAt }`
+- Storage: JSON file store for MVP, Cosmos DB for production.
+
+### FR-13: AI Conversation Engine
+- System prompt includes all previously collected entities and stories for full context.
+- Conversation starts with a warm, open-ended question if no prior stories exist.
+- Returning conversations reference specific past details.
+- Entity extraction runs after each user message (async, non-blocking).
+- Gap detection influences follow-up question selection.
+- Knowledge queries search all entities and compose narrative answers.
+
+### FR-14: Frontend Pages
 | Route | Description | Auth Required |
 |---|---|---|
-| `/` | Landing page with links to Login and Register | No |
-| `/login` | Login form (username + password) | No |
-| `/register` | Registration form (username + password) | No |
-| `/profile` | Displays user profile info (including role) and logout button | Yes |
-| `/admin` | Lists all registered users (username, role, createdAt) | Yes (admin only) |
-
-### FR-4: Security
-- Passwords hashed with bcrypt (cost factor ≥ 10).
-- JWT tokens signed with a server-side secret (from environment variable `JWT_SECRET`).
-- JWT stored in HTTP-only, Secure, SameSite=Strict cookie.
-- JWT expiry: 24 hours.
-- All API errors return consistent JSON shape: `{ error: string }`.
-- Admin-only endpoints must verify the user's role from the JWT; return 403 if role is not `admin`.
+| `/` | Main conversation page — voice/text chat with Oma-friendly UI | No |
+| `/history` | List of past sessions with summaries | No |
+| `/history/:id` | Full transcript view with entity highlights | No |
+| `/ask` | Knowledge query page ("What do you know about...?") | No |
+| `/timeline` | Decade coverage timeline visualization | No |
 
 ## 5. Non-Functional Requirements
 
-- **NFR-1:** API response time < 500ms for all endpoints.
-- **NFR-2:** Frontend pages should render within 2 seconds on initial load.
-- **NFR-3:** The app must work on the latest versions of Chrome, Firefox, and Safari.
-- **NFR-4:** All form inputs must have associated labels for accessibility (WCAG 2.1 AA).
+- **NFR-10:** End-to-end voice latency (Oma stops speaking → AI starts responding) < 2 seconds.
+- **NFR-11:** All transcripts and entities are persisted immediately — no data loss on disconnect.
+- **NFR-12:** The app must work on Chrome, Firefox, and Safari (latest versions).
+- **NFR-13:** Elderly-friendly UI: minimum 18px font, high contrast (WCAG 2.1 AA), large touch targets.
+- **NFR-14:** Voice conversations can last up to 60 minutes without degradation.
+- **NFR-15:** The AI responds in whatever language Oma uses (German by default).
 
-## 6. Out of Scope
+## 6. Out of Scope (MVP)
 
-- Email verification or password reset.
-- OAuth / social login.
-- Persistent database (in-memory store is sufficient for MVP).
-- Profile editing (profile is read-only).
-- Role management UI (no way to change roles after creation).
+- Multi-user accounts or authentication (family shares one instance).
+- Audio recording storage (only transcripts are stored in MVP).
+- Photo or document attachment to stories.
+- Export/print of family history book.
+- Mobile native app (web-only for MVP).
 
-## 8. Future Considerations
+## 7. Future Considerations
 
-- **SSO via Microsoft Entra ID:** The auth architecture (JWT-based, role in token payload) is designed to be compatible with a future migration to Entra ID SSO. When added, the `/api/auth/login` flow would be replaced by an Entra redirect, and the JWT would be issued from Entra tokens. The role model (`user`/`admin`) can map to Entra groups/app roles.
+- **Family accounts:** Add authentication so multiple family members can log in and contribute.
+- **Azure VoiceLive API:** Replace browser speech APIs with Azure's real-time voice services for higher accuracy.
+- **Cosmos DB:** Replace JSON file store with Azure Cosmos DB for scalability.
+- **Family History Book:** Generate a printable PDF from all collected stories.
+- **Photo integration:** Allow attaching photos to specific stories or entities.
+- **Multi-language support:** Detect and support multiple languages within the same conversation.
 
-## 9. Technical Stack
+## 8. Technical Stack
 
 - **Frontend:** Next.js (App Router, TypeScript, Tailwind CSS)
 - **Backend:** Express.js (TypeScript)
-- **Auth:** JWT (jsonwebtoken), bcrypt
-- **Storage:** In-memory JavaScript Map
+- **AI:** Azure OpenAI (GPT-4o) for conversation, entity extraction, and knowledge queries
+- **Voice (MVP):** Browser Web Speech API (SpeechRecognition + SpeechSynthesis)
+- **Voice (Production):** Azure Speech SDK / VoiceLive API
+- **Storage (MVP):** JSON file store
+- **Storage (Production):** Azure Cosmos DB
 - **Deployment:** Azure Container Apps via AZD

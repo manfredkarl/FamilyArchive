@@ -3,7 +3,8 @@
   "productDiscovery": {
     "specRefinement": { "status": "pending" },
     "uiuxDesign": { "status": "pending" },
-    "incrementPlanning": { "status": "pending" }
+    "incrementPlanning": { "status": "pending" },
+    "techStackResolution": { "status": "pending" }
   },
   "incrementPlan": [],
   "currentIncrement": null,
@@ -12,8 +13,9 @@
     "phase0-approved": false,
     "discovery-specs-approved": false,
     "discovery-uiux-approved": false,
-    "discovery-plan-approved": false
+    "discovery-plan-approved": false,
+    "discovery-techstack-approved": false
   },
   "testsStatus": {},
-  "lastUpdated": "2026-02-25T08:30:00Z"
+  "lastUpdated": "2026-02-28T11:40:00Z"
 }
