@@ -94,7 +94,13 @@ export function useVoiceLive(): UseVoiceLiveReturn {
     isPlayingRef.current = true;
 
     const pcm16 = playQueueRef.current.shift()!;
-    const int16 = new Int16Array(pcm16);
+    // Ensure even byte length for Int16Array (PCM16 = 2 bytes per sample)
+    const byteLen = pcm16.byteLength - (pcm16.byteLength % 2);
+    if (byteLen === 0) {
+      playNextChunk();
+      return;
+    }
+    const int16 = new Int16Array(pcm16, 0, byteLen / 2);
     const float32 = new Float32Array(int16.length);
     for (let i = 0; i < int16.length; i++) {
       float32[i] = int16[i] / (int16[i] < 0 ? 0x8000 : 0x7fff);
