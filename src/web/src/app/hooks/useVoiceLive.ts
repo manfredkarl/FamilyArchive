@@ -27,13 +27,12 @@ interface UseVoiceLiveReturn {
   endSession: () => void;
 }
 
-const TOKEN_URL =
+const VOICE_WS_URL =
   process.env.NEXT_PUBLIC_API_URL
-    ? `${process.env.NEXT_PUBLIC_API_URL}/api/voice/token`
-    : '/api/voice/token';
+    ? process.env.NEXT_PUBLIC_API_URL.replace(/^http/, 'ws') + '/api/voice'
+    : 'ws://localhost:5001/api/voice';
 
 const VL_SAMPLE_RATE = 24000;
-const API_VERSION = '2025-10-01';
 
 const SYSTEM_PROMPT = `Du bist eine warmherzige, geduldige KI-Begleiterin, die Oma dabei hilft, ihre Lebensgeschichten zu bewahren.
 
@@ -207,19 +206,7 @@ export function useVoiceLive(): UseVoiceLiveReturn {
     setState('connecting');
 
     try {
-      // 1. Fetch short-lived token from our API
-      const tokenRes = await fetch(TOKEN_URL);
-      if (!tokenRes.ok) {
-        const body = await tokenRes.json().catch(() => ({}));
-        throw new Error(body.error || 'Failed to fetch voice token');
-      }
-      const { token, endpoint, model } = (await tokenRes.json()) as {
-        token: string;
-        endpoint: string;
-        model: string;
-      };
-
-      // 2. Get mic access (mono, noise/echo suppressed)
+      // 1. Get mic access (mono, noise/echo suppressed)
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           channelCount: 1,
@@ -230,21 +217,21 @@ export function useVoiceLive(): UseVoiceLiveReturn {
       });
       micStreamRef.current = stream;
 
-      // 3. Capture AudioContext (native rate — worklet resamples to 24kHz)
+      // 2. Capture AudioContext (native rate — worklet resamples to 24kHz)
       const captureCtx = new AudioContext();
       captureCtxRef.current = captureCtx;
 
-      // 4. Playback AudioContext (native rate — createBuffer(24kHz) auto-resamples)
+      // 3. Playback AudioContext (native rate — createBuffer(24kHz) auto-resamples)
       const playbackCtx = new AudioContext();
       playbackCtxRef.current = playbackCtx;
 
-      // 5. Register worklet
+      // 4. Register worklet
       const blob = new Blob([WORKLET_SOURCE], { type: 'application/javascript' });
       const workletUrl = URL.createObjectURL(blob);
       await captureCtx.audioWorklet.addModule(workletUrl);
       URL.revokeObjectURL(workletUrl);
 
-      // 6. Connect mic → worklet
+      // 5. Connect mic → worklet
       const micSource = captureCtx.createMediaStreamSource(stream);
       sourceNodeRef.current = micSource;
 
@@ -252,10 +239,8 @@ export function useVoiceLive(): UseVoiceLiveReturn {
       workletNodeRef.current = worklet;
       micSource.connect(worklet);
 
-      // 7. Connect directly to Azure VoiceLive WebSocket
-      const host = endpoint.replace(/^https?:\/\//, '');
-      const wsUrl = `wss://${host}/voice-live/realtime?api-version=${API_VERSION}&model=${encodeURIComponent(model)}&access_token=${encodeURIComponent(token)}`;
-      const ws = new WebSocket(wsUrl);
+      // 6. Connect to VoiceLive via Express relay (handles Azure auth server-side)
+      const ws = new WebSocket(VOICE_WS_URL);
       wsRef.current = ws;
 
       ws.onopen = () => {
