@@ -27,6 +27,12 @@ param webContainerAppName string = ''
 param webAppExists bool = false
 param apiAppExists bool = false
 
+@description('Azure OpenAI model deployment name')
+param openaiDeploymentName string = 'gpt-4o'
+
+@description('Deploy Cosmos DB for production storage')
+param deployCosmosDb bool = false
+
 var tags = {
   'azd-env-name': environmentName
 }
@@ -120,6 +126,51 @@ module apiIdentity 'br/public:avm/res/managed-identity/user-assigned-identity:0.
   }
 }
 
+// Azure OpenAI
+module openai 'core/ai/openai.bicep' = {
+  name: 'openai'
+  scope: rg
+  params: {
+    name: 'oai-${resourceToken}'
+    location: location
+    tags: tags
+    deployments: [
+      {
+        name: openaiDeploymentName
+        model: {
+          format: 'OpenAI'
+          name: 'gpt-4o'
+          version: '2024-11-20'
+        }
+        sku: {
+          name: 'Standard'
+          capacity: 30
+        }
+      }
+    ]
+    roleAssignmentPrincipalIds: [
+      apiIdentity.outputs.principalId
+    ]
+    userRoleAssignmentPrincipalIds: [
+      principalId
+    ]
+  }
+}
+
+// Cosmos DB (optional, for production)
+module cosmosDb 'core/storage/cosmosdb.bicep' = if (deployCosmosDb) {
+  name: 'cosmosdb'
+  scope: rg
+  params: {
+    name: 'cosmos-${resourceToken}'
+    location: location
+    tags: tags
+    roleAssignmentPrincipalIds: [
+      apiIdentity.outputs.principalId
+    ]
+  }
+}
+
 // Api backend
 module api 'br/public:avm/ptn/azd/container-app-upsert:0.1.1' = {
   name: 'api-container-app'
@@ -140,6 +191,14 @@ module api 'br/public:avm/ptn/azd/container-app-upsert:0.1.1' = {
       {
         name: 'JWT_SECRET'
         value: 'azd-${resourceToken}-jwt-secret'
+      }
+      {
+        name: 'AZURE_OPENAI_ENDPOINT'
+        value: openai.outputs.endpoint
+      }
+      {
+        name: 'AZURE_OPENAI_DEPLOYMENT'
+        value: openai.outputs.deploymentName
       }
     ]
     containerAppsEnvironmentName: containerApps.outputs.environmentName
@@ -170,4 +229,6 @@ output REACT_APP_WEB_BASE_URL string = web.outputs.uri
 output SERVICE_API_NAME string = api.outputs.name
 output SERVICE_WEB_NAME string = web.outputs.name
 output AZURE_RESOURCE_GROUP string = resourceGroupName
+output AZURE_OPENAI_ENDPOINT string = openai.outputs.endpoint
+output AZURE_OPENAI_DEPLOYMENT string = openai.outputs.deploymentName
 
