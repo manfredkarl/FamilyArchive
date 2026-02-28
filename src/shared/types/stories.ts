@@ -43,3 +43,55 @@ export interface SessionListResponse {
 export interface ErrorResponse {
   error: string;
 }
+
+// --- Knowledge System (Increment 3) ---
+
+export interface Entity {
+  id: string;
+  name: string;
+  type: 'person' | 'year' | 'place' | 'event';
+  context: string;
+  relationship: string | null;
+  decade: string | null;
+  sourceMessageIds: string[];
+  sourceSessionIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DecadeCoverage {
+  decade: string;
+  entityCount: number;
+  status: 'empty' | 'thin' | 'covered';
+}
+
+export interface CoverageResponse {
+  decades: DecadeCoverage[];
+  gaps: string[];
+}
+
+export interface KnowledgeQueryRequest {
+  question: string;
+}
+
+export interface KnowledgeQueryResponse {
+  answer: string;
+  sources: SourceReference[];
+}
+
+export interface SourceReference {
+  sessionId: string;
+  sessionDate: string;
+  messageId: string;
+  excerpt: string;
+}
+
+export interface EntityListResponse {
+  entities: Entity[];
+  total: number;
+}
+
+export interface EntitySearchResponse {
+  entities: Entity[];
+  total: number;
+}

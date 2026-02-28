@@ -1,14 +1,16 @@
-import type { StorySession, StoryMessage } from '../models/story.js';
+import type { StorySession, StoryMessage, Entity } from '../models/story.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
 const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
 const MESSAGES_DIR = path.join(DATA_DIR, 'messages');
+const ENTITIES_FILE = path.join(DATA_DIR, 'entities.json');
 
 // In-memory cache backed by JSON files
 let sessions = new Map<string, StorySession>();
 let messages = new Map<string, StoryMessage[]>();
+let entities: Entity[] = [];
 let idCounter = 0;
 let useFileStorage = false;
 
@@ -40,6 +42,12 @@ function persistMessages(sessionId: string): void {
   const msgs = messages.get(sessionId) ?? [];
   const filePath = path.join(MESSAGES_DIR, `${sessionId}.json`);
   atomicWrite(filePath, JSON.stringify(msgs, null, 2));
+}
+
+function persistEntities(): void {
+  if (!useFileStorage) return;
+  ensureDirs();
+  atomicWrite(ENTITIES_FILE, JSON.stringify(entities, null, 2));
 }
 
 function loadFromDisk(): void {
@@ -78,6 +86,14 @@ function loadFromDisk(): void {
     }
   } catch {
     // Start fresh if corrupted
+  }
+
+  try {
+    if (fs.existsSync(ENTITIES_FILE)) {
+      entities = JSON.parse(fs.readFileSync(ENTITIES_FILE, 'utf-8')) as Entity[];
+    }
+  } catch {
+    entities = [];
   }
 }
 
@@ -170,6 +186,64 @@ export function getSessionMessages(sessionId: string): StoryMessage[] {
 export function clearStoryStore(): void {
   sessions = new Map();
   messages = new Map();
+  entities = [];
   idCounter = 0;
   // Don't delete files during clear (used in tests with in-memory mode)
+}
+
+// --- Entity storage ---
+
+export function addEntities(newEntities: Entity[]): void {
+  for (const newEnt of newEntities) {
+    const existing = entities.find(
+      (e) => e.name.toLowerCase() === newEnt.name.toLowerCase() && e.type === newEnt.type,
+    );
+
+    if (existing) {
+      // Merge: accumulate sources, keep longer context
+      for (const mid of newEnt.sourceMessageIds) {
+        if (!existing.sourceMessageIds.includes(mid)) {
+          existing.sourceMessageIds.push(mid);
+        }
+      }
+      for (const sid of newEnt.sourceSessionIds) {
+        if (!existing.sourceSessionIds.includes(sid)) {
+          existing.sourceSessionIds.push(sid);
+        }
+      }
+      if (newEnt.context.length > existing.context.length) {
+        existing.context = newEnt.context;
+      }
+      existing.updatedAt = new Date().toISOString();
+    } else {
+      entities.push(newEnt);
+    }
+  }
+  persistEntities();
+}
+
+export function getAllEntities(): Entity[] {
+  return [...entities].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+}
+
+export function searchEntities(query: string): Entity[] {
+  const q = query.toLowerCase();
+  const results = entities.filter(
+    (e) => e.name.toLowerCase().includes(q) || e.context.toLowerCase().includes(q),
+  );
+
+  // Sort: exact name match first, then name contains, then context contains
+  results.sort((a, b) => {
+    const aExact = a.name.toLowerCase() === q ? 0 : 1;
+    const bExact = b.name.toLowerCase() === q ? 0 : 1;
+    if (aExact !== bExact) return aExact - bExact;
+
+    const aName = a.name.toLowerCase().includes(q) ? 0 : 1;
+    const bName = b.name.toLowerCase().includes(q) ? 0 : 1;
+    return aName - bName;
+  });
+
+  return results.slice(0, 50);
 }

@@ -14,3 +14,22 @@ export interface StoryMessage {
   content: string;
   timestamp: string;
 }
+
+export interface Entity {
+  id: string;
+  name: string;
+  type: 'person' | 'year' | 'place' | 'event';
+  context: string;
+  relationship: string | null;
+  decade: string | null;
+  sourceMessageIds: string[];
+  sourceSessionIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DecadeCoverage {
+  decade: string;
+  entityCount: number;
+  status: 'empty' | 'thin' | 'covered';
+}

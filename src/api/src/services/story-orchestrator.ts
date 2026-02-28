@@ -6,8 +6,11 @@ import {
   getFallbackSummary,
   type ChatMessage,
 } from './openai-client.js';
-import { getSessionMessages, getAllSessions, addMessage } from './story-store.js';
+import { getSessionMessages, getAllSessions, addMessage, getAllEntities } from './story-store.js';
+import { extractEntities } from './entity-extraction.js';
+import { buildGapHint } from './gap-detection.js';
 import type { StoryMessage } from '../models/story.js';
+import { logger } from '../logger.js';
 
 const PERSONALITY_PROMPT = `Du bist eine warmherzige, geduldige KI-Begleiterin, die Oma dabei hilft, ihre Lebensgeschichten zu erzählen und zu bewahren. 
 
@@ -33,13 +36,35 @@ const MAX_TRANSCRIPT_CHARS = MAX_TRANSCRIPT_TOKENS * CHARS_PER_TOKEN;
 export function buildSystemPrompt(
   previousSummaries: string[],
   currentTranscript: StoryMessage[],
+  turnCount?: number,
 ): ChatMessage[] {
   const messages: ChatMessage[] = [];
 
   // 1. Personality instructions
   messages.push({ role: 'system', content: PERSONALITY_PROMPT });
 
-  // 2. Previous session summaries (trimmed if over budget)
+  // 2. Entity context
+  const allEntities = getAllEntities();
+  if (allEntities.length > 0) {
+    const entitySummary = allEntities
+      .slice(0, 30)
+      .map((e) => `- ${e.name} (${e.type}): ${e.context}`)
+      .join('\n');
+    messages.push({
+      role: 'system',
+      content: `Bekannte Entitäten aus bisherigen Gesprächen:\n${entitySummary}`,
+    });
+  }
+
+  // 3. Gap hints (at most once per 5 turns)
+  if (turnCount !== undefined) {
+    const gapHint = buildGapHint(turnCount);
+    if (gapHint) {
+      messages.push({ role: 'system', content: gapHint });
+    }
+  }
+
+  // 4. Previous session summaries (trimmed if over budget)
   if (previousSummaries.length > 0) {
     let summariesText = previousSummaries
       .map((s, i) => `Gespräch ${i + 1}: ${s}`)
@@ -126,7 +151,6 @@ export async function handleConversationTurn(
 ): Promise<string> {
   // Store user message
   const userMsg = addMessage(sessionId, 'user', userMessage);
-  void userMsg;
 
   if (!isOpenAIConfigured()) {
     const response = getFallbackResponse();
@@ -141,12 +165,20 @@ export async function handleConversationTurn(
     .map((s) => s.summary as string);
 
   const currentMessages = getSessionMessages(sessionId);
+  // Turn count = number of user messages in this session
+  const turnCount = currentMessages.filter((m) => m.role === 'user').length;
 
-  const prompt = buildSystemPrompt(previousSummaries, currentMessages);
+  const prompt = buildSystemPrompt(previousSummaries, currentMessages, turnCount);
 
   try {
     const response = await chatCompletion(prompt, { maxTokens: 500, temperature: 0.7 });
     addMessage(sessionId, 'assistant', response);
+
+    // Fire entity extraction asynchronously (don't await)
+    extractEntities(userMessage, userMsg.id, sessionId).catch((err) => {
+      logger.error({ err }, 'Async entity extraction failed');
+    });
+
     return response;
   } catch {
     throw new Error('AI service is currently unavailable. Please try again.');
