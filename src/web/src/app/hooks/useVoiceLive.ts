@@ -28,28 +28,32 @@ interface UseVoiceLiveReturn {
 }
 
 const VOICE_URL =
-  (typeof window !== 'undefined' &&
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (window as any).__NEXT_DATA__?.runtimeConfig?.NEXT_PUBLIC_VOICE_URL) ||
-  process.env.NEXT_PUBLIC_VOICE_URL ||
-  'ws://localhost:5002/ws';
+  process.env.NEXT_PUBLIC_VOICE_URL || 'ws://localhost:5002/ws';
 
-const SAMPLE_RATE = 24000;
-const BUFFER_SIZE = 4096; // samples per worklet frame
+const VL_SAMPLE_RATE = 24000; // VoiceLive uses 24kHz PCM16
 
 /**
- * PCM16-capture AudioWorklet processor (inline, registered via Blob URL).
- * Captures mono 24 kHz PCM16 from the mic and posts ArrayBuffers to the main thread.
+ * PCM16-capture AudioWorklet processor.
+ * Resamples from the AudioContext's native rate to 24 kHz and emits PCM16 LE.
  */
 const WORKLET_SOURCE = `
 class Pcm16CaptureProcessor extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    this._ratio = sampleRate / 24000;
+  }
   process(inputs) {
     const input = inputs[0];
-    if (!input || !input[0]) return true;
+    if (!input || !input[0] || input[0].length === 0) return true;
     const float32 = input[0];
-    const pcm16 = new Int16Array(float32.length);
-    for (let i = 0; i < float32.length; i++) {
-      const s = Math.max(-1, Math.min(1, float32[i]));
+
+    // Resample: pick every _ratio-th sample (simple decimation)
+    const outLen = Math.floor(float32.length / this._ratio);
+    if (outLen === 0) return true;
+    const pcm16 = new Int16Array(outLen);
+    for (let i = 0; i < outLen; i++) {
+      const srcIdx = Math.round(i * this._ratio);
+      const s = Math.max(-1, Math.min(1, float32[srcIdx] || 0));
       pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
     }
     this.port.postMessage(pcm16.buffer, [pcm16.buffer]);
@@ -71,7 +75,8 @@ export function useVoiceLive(): UseVoiceLiveReturn {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
+  const captureCtxRef = useRef<AudioContext | null>(null);
+  const playbackCtxRef = useRef<AudioContext | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const workletNodeRef = useRef<AudioWorkletNode | null>(null);
   const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
@@ -88,7 +93,7 @@ export function useVoiceLive(): UseVoiceLiveReturn {
   const nextPlayTimeRef = useRef(0);
 
   const scheduleAudioChunk = useCallback((pcm16: ArrayBuffer) => {
-    const ctx = audioCtxRef.current;
+    const ctx = playbackCtxRef.current;
     if (!ctx) return;
 
     // Ensure even byte length for Int16Array
@@ -101,7 +106,8 @@ export function useVoiceLive(): UseVoiceLiveReturn {
       float32[i] = int16[i] / (int16[i] < 0 ? 0x8000 : 0x7fff);
     }
 
-    const buffer = ctx.createBuffer(1, float32.length, SAMPLE_RATE);
+    // Create buffer at VoiceLive's 24kHz — AudioContext auto-resamples to native rate
+    const buffer = ctx.createBuffer(1, float32.length, VL_SAMPLE_RATE);
     buffer.copyToChannel(float32, 0);
 
     const source = ctx.createBufferSource();
@@ -132,38 +138,30 @@ export function useVoiceLive(): UseVoiceLiveReturn {
   // ---------- cleanup ----------
 
   const cleanup = useCallback(() => {
-    // WebSocket
     if (wsRef.current) {
-      try {
-        wsRef.current.close();
-      } catch { /* ignore */ }
+      try { wsRef.current.close(); } catch { /* ignore */ }
       wsRef.current = null;
     }
-
-    // AudioWorklet + mic
     if (workletNodeRef.current) {
-      try {
-        workletNodeRef.current.disconnect();
-      } catch { /* ignore */ }
+      try { workletNodeRef.current.disconnect(); } catch { /* ignore */ }
       workletNodeRef.current = null;
     }
     if (sourceNodeRef.current) {
-      try {
-        sourceNodeRef.current.disconnect();
-      } catch { /* ignore */ }
+      try { sourceNodeRef.current.disconnect(); } catch { /* ignore */ }
       sourceNodeRef.current = null;
     }
     if (micStreamRef.current) {
       micStreamRef.current.getTracks().forEach((t) => t.stop());
       micStreamRef.current = null;
     }
-    if (audioCtxRef.current) {
-      try {
-        audioCtxRef.current.close();
-      } catch { /* ignore */ }
-      audioCtxRef.current = null;
+    if (captureCtxRef.current) {
+      try { captureCtxRef.current.close(); } catch { /* ignore */ }
+      captureCtxRef.current = null;
     }
-
+    if (playbackCtxRef.current) {
+      try { playbackCtxRef.current.close(); } catch { /* ignore */ }
+      playbackCtxRef.current = null;
+    }
     stopPlayback();
   }, [stopPlayback]);
 
@@ -191,39 +189,40 @@ export function useVoiceLive(): UseVoiceLiveReturn {
     setState('connecting');
 
     try {
-      // 1. Get mic access
+      // 1. Get mic access (mono, noise/echo suppressed)
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          sampleRate: SAMPLE_RATE,
           channelCount: 1,
           echoCancellation: true,
           noiseSuppression: true,
+          autoGainControl: true,
         },
       });
       micStreamRef.current = stream;
 
-      // 2. AudioContext
-      const audioCtx = new AudioContext({ sampleRate: SAMPLE_RATE });
-      audioCtxRef.current = audioCtx;
+      // 2. Capture AudioContext (native rate — worklet resamples to 24kHz)
+      const captureCtx = new AudioContext();
+      captureCtxRef.current = captureCtx;
 
-      // 3. Register worklet
+      // 3. Playback AudioContext (native rate — createBuffer(24kHz) auto-resamples)
+      const playbackCtx = new AudioContext();
+      playbackCtxRef.current = playbackCtx;
+
+      // 4. Register worklet
       const blob = new Blob([WORKLET_SOURCE], { type: 'application/javascript' });
       const workletUrl = URL.createObjectURL(blob);
-      await audioCtx.audioWorklet.addModule(workletUrl);
+      await captureCtx.audioWorklet.addModule(workletUrl);
       URL.revokeObjectURL(workletUrl);
 
-      // 4. Connect mic → worklet
-      const source = audioCtx.createMediaStreamSource(stream);
+      // 5. Connect mic → worklet (captures at native rate, worklet resamples to 24kHz)
+      const source = captureCtx.createMediaStreamSource(stream);
       sourceNodeRef.current = source;
 
-      const worklet = new AudioWorkletNode(audioCtx, 'pcm16-capture', {
-        processorOptions: { bufferSize: BUFFER_SIZE },
-      });
+      const worklet = new AudioWorkletNode(captureCtx, 'pcm16-capture');
       workletNodeRef.current = worklet;
       source.connect(worklet);
-      // worklet doesn't need to connect to destination (capture only)
 
-      // 5. WebSocket
+      // 6. WebSocket to VoiceLive proxy
       const ws = new WebSocket(VOICE_URL);
       wsRef.current = ws;
 

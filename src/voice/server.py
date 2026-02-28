@@ -96,11 +96,10 @@ async def _voicelive_to_browser(browser_ws, vl_conn) -> None:
                 await _send_json(browser_ws, {"type": "status", "status": "listening"})
 
             elif evt_type == ServerEventType.RESPONSE_AUDIO_DELTA:
-                # Send audio as BINARY frame for low latency (not JSON-wrapped)
-                audio_b64 = event.delta if hasattr(event, 'delta') else None
-                if audio_b64:
+                # delta is already raw PCM16 bytes (SDK decodes base64 for us)
+                audio_bytes = event.delta if hasattr(event, 'delta') else None
+                if audio_bytes and isinstance(audio_bytes, (bytes, bytearray)):
                     try:
-                        audio_bytes = base64.b64decode(audio_b64)
                         await browser_ws.send(audio_bytes)
                     except Exception:
                         pass
