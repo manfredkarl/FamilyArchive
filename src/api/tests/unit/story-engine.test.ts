@@ -33,22 +33,15 @@ describe('Story Engine — Increment 2', () => {
     mockedIsConfigured.mockReturnValue(true);
   });
 
-  // Helper: create a session with mocked AI welcome
+  // Helper: create a session (static welcome, no AI call needed)
   async function createTestSession() {
-    mockedChatCompletion.mockResolvedValueOnce(
-      'Hallo! Erzähl mir eine Geschichte.',
-    );
     const res = await request(app).post('/api/stories/sessions');
     return res;
   }
 
   // AC 1: POST /sessions returns AI-generated welcome
   describe('POST /api/stories/sessions — AI welcome', () => {
-    it('should return AI-generated welcome message (first session)', async () => {
-      mockedChatCompletion.mockResolvedValueOnce(
-        'Hallo! Schön, dass du da bist. Was möchtest du heute erzählen?',
-      );
-
+    it('should return static welcome message (first session)', async () => {
       const res = await request(app).post('/api/stories/sessions');
 
       expect(res.status).toBe(201);
@@ -56,18 +49,16 @@ describe('Story Engine — Increment 2', () => {
       expect(res.body.session.id).toBeDefined();
       expect(res.body.session.status).toBe('active');
       expect(res.body.session.messageCount).toBe(1);
-      expect(res.body.welcomeMessage).toBe(
-        'Hallo! Schön, dass du da bist. Was möchtest du heute erzählen?',
-      );
-      expect(mockedChatCompletion).toHaveBeenCalledTimes(1);
+      expect(res.body.welcomeMessage).toContain('Hallo!');
+      // Static welcome — no AI call
+      expect(mockedChatCompletion).not.toHaveBeenCalled();
     });
 
-    it('should reference prior sessions for returning users', async () => {
+    it('should reference prior session summary for returning users', async () => {
       // First session
-      mockedChatCompletion.mockResolvedValueOnce('Willkommen!');
       await request(app).post('/api/stories/sessions');
 
-      // End first session
+      // End first session with summary
       const sessions = await request(app).get('/api/stories/sessions');
       const firstSessionId = sessions.body.sessions[0].id;
       mockedChatCompletion.mockResolvedValueOnce(
@@ -77,10 +68,7 @@ describe('Story Engine — Increment 2', () => {
         `/api/stories/sessions/${firstSessionId}/end`,
       );
 
-      // Second session — should get context from prior sessions
-      mockedChatCompletion.mockResolvedValueOnce(
-        'Schön, dass du wieder da bist! Letztes Mal hast du mir vom Garten erzählt.',
-      );
+      // Second session — static welcome references last summary
       const res = await request(app).post('/api/stories/sessions');
 
       expect(res.status).toBe(201);
@@ -152,9 +140,7 @@ describe('Story Engine — Increment 2', () => {
       mockedChatCompletion.mockResolvedValueOnce('Zusammenfassung.');
       await request(app).post(
         `/api/stories/sessions/${sessionId}/end`,
-      );
-
-      // Try to end again
+      );      // Try to end again
       const res = await request(app).post(
         `/api/stories/sessions/${sessionId}/end`,
       );
@@ -167,8 +153,7 @@ describe('Story Engine — Increment 2', () => {
   // AC 5: GET /sessions returns sorted list with pagination
   describe('GET /api/stories/sessions — pagination', () => {
     it('should return sessions sorted by startedAt descending with pagination', async () => {
-      // Create 3 sessions
-      mockedChatCompletion.mockResolvedValue('Willkommen!');
+      // Create 3 sessions (static welcome, no mock needed)
       await request(app).post('/api/stories/sessions');
       await request(app).post('/api/stories/sessions');
       await request(app).post('/api/stories/sessions');
@@ -191,7 +176,6 @@ describe('Story Engine — Increment 2', () => {
     });
 
     it('should support offset pagination', async () => {
-      mockedChatCompletion.mockResolvedValue('Willkommen!');
       await request(app).post('/api/stories/sessions');
       await request(app).post('/api/stories/sessions');
       await request(app).post('/api/stories/sessions');
@@ -298,17 +282,8 @@ describe('Story Engine — Increment 2', () => {
   // AC 9: Azure OpenAI failure returns 503
   describe('Azure OpenAI failure handling', () => {
     it('should return 503 when AI fails during session creation', async () => {
-      mockedChatCompletion.mockRejectedValueOnce(
-        new Error('Azure OpenAI returned 500'),
-      );
-      // When OpenAI configured but fails, welcome falls back — but session creation
-      // should still succeed with fallback welcome in the orchestrator
-      // Let's test when the entire startNewSession throws
-      // Actually, the orchestrator catches chatCompletion errors and returns fallback
-      // So we need to verify it gracefully handles errors
-
+      // Static welcome never calls AI, so session creation should always succeed
       const res = await request(app).post('/api/stories/sessions');
-      // Should succeed with fallback
       expect(res.status).toBe(201);
       expect(res.body.welcomeMessage).toBeDefined();
     });

@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Omas Geschichten — Gesprächsdetail</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --amber: #D97706; --amber-dark: #B45309; --honey: #F59E0B;
+  --cream: #FFFBEB; --linen: #FEF3C7; --warm-white: #FEFCE8;
+  --espresso: #451A03; --brown: #78350F; --cocoa: #92400E;
+  --border: #FDE68A;
+  --font-heading: Georgia, 'Times New Roman', serif;
+  --font-body: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  --radius: 12px; --radius-lg: 16px;
+  --person-bg: #DBEAFE; --person-text: #1E40AF;
+  --place-bg: #D1FAE5; --place-text: #065F46;
+  --year-bg: #FEF3C7; --year-text: #92400E;
+  --event-bg: #EDE9FE; --event-text: #5B21B6;
+}
+body { font-family: var(--font-body); font-size: 18px; line-height: 1.6; color: var(--espresso); background: var(--cream); min-height: 100vh; }
+a { color: var(--amber); text-decoration: none; font-weight: 600; }
+a:hover { color: var(--amber-dark); text-decoration: underline; }
+a:focus-visible { outline: 3px solid var(--amber-dark); outline-offset: 2px; border-radius: 4px; }
+
+nav { background: var(--cream); border-bottom: 2px solid var(--border); padding: 0 24px; height: 64px; display: flex; align-items: center; gap: 24px; position: sticky; top: 0; z-index: 100; }
+nav .brand { font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--espresso); margin-right: auto; }
+nav a { font-size: 18px; padding: 8px 4px; }
+nav a.active { color: var(--amber); border-bottom: 3px solid var(--amber); }
+
+main { max-width: 800px; margin: 0 auto; padding: 32px 24px; }
+
+.back-link { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 24px; font-size: 18px; }
+
+/* Session header */
+.session-header { background: var(--linen); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 32px; }
+.session-header h1 { font-family: var(--font-heading); font-size: 28px; color: var(--espresso); margin-bottom: 8px; }
+.session-header .meta { display: flex; gap: 24px; font-size: 16px; color: var(--cocoa); margin-bottom: 16px; flex-wrap: wrap; }
+.session-header .meta span { display: flex; align-items: center; gap: 6px; }
+.session-header .summary { font-size: 18px; color: var(--brown); font-style: italic; }
+
+/* Entity legend */
+.entity-legend { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 16px; }
+.legend-dot { width: 14px; height: 14px; border-radius: 50%; }
+.legend-dot.person { background: var(--person-bg); border: 2px solid var(--person-text); }
+.legend-dot.place { background: var(--place-bg); border: 2px solid var(--place-text); }
+.legend-dot.year { background: var(--year-bg); border: 2px solid var(--year-text); }
+.legend-dot.event { background: var(--event-bg); border: 2px solid var(--event-text); }
+
+/* Transcript */
+.transcript { display: flex; flex-direction: column; gap: 20px; }
+.turn { display: flex; flex-direction: column; gap: 8px; }
+.turn .role { font-size: 16px; font-weight: 700; color: var(--cocoa); display: flex; align-items: center; gap: 8px; }
+.turn .role .time { font-weight: 400; color: var(--cocoa); opacity: 0.7; }
+.turn .content { font-size: 20px; line-height: 1.6; padding: 16px 20px; border-radius: var(--radius-lg); }
+.turn.assistant .content { background: var(--linen); border: 1px solid var(--border); }
+.turn.user .content { background: var(--amber); color: #fff; }
+
+/* Entity chips */
+.entities { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.chip { padding: 4px 14px; border-radius: 20px; font-size: 14px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+.chip.person { background: var(--person-bg); color: var(--person-text); }
+.chip.place { background: var(--place-bg); color: var(--place-text); }
+.chip.year { background: var(--year-bg); color: var(--year-text); }
+.chip.event { background: var(--event-bg); color: var(--event-text); }
+
+.divider { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
+
+@media (max-width: 640px) {
+  nav { padding: 0 16px; gap: 16px; }
+  nav a { font-size: 16px; }
+  main { padding: 24px 16px; }
+  .turn .content { font-size: 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<nav aria-label="Hauptnavigation">
+  <span class="brand">💛 Omas Geschichten</span>
+  <a href="conversation.html" data-testid="nav-conversation">Gespräch</a>
+  <a href="history.html" class="active" data-testid="nav-history">📖 Verlauf</a>
+  <a href="ask.html" data-testid="nav-ask">🔍 Fragen</a>
+  <a href="timeline.html" data-testid="nav-timeline">📅 Zeitstrahl</a>
+</nav>
+
+<main>
+  <a href="history.html" class="back-link" data-testid="back-to-history">← Zurück zum Verlauf</a>
+
+  <div class="session-header" data-testid="session-header">
+    <h1>Gespräch vom 15. Januar 2025</h1>
+    <div class="meta">
+      <span>📅 15. Januar 2025, 14:30 Uhr</span>
+      <span>⏱ 40 Minuten</span>
+      <span>💬 24 Nachrichten</span>
+    </div>
+    <div class="summary" data-testid="session-summary">
+      Oma erzählte von ihrer Kindheit in Heidelberg in den 1950er Jahren. Besonders lebendig waren die Erinnerungen an den Apfelbaum im Garten, ihren Bruder Hans und die Sonntagsbesuche von Tante Elfriede mit ihrem berühmten Streuselkuchen.
+    </div>
+  </div>
+
+  <div class="entity-legend" data-testid="entity-legend">
+    <div class="legend-item"><span class="legend-dot person"></span> Personen</div>
+    <div class="legend-item"><span class="legend-dot place"></span> Orte</div>
+    <div class="legend-item"><span class="legend-dot year"></span> Jahre</div>
+    <div class="legend-item"><span class="legend-dot event"></span> Ereignisse</div>
+  </div>
+
+  <div class="transcript" data-testid="transcript">
+
+    <div class="turn assistant">
+      <div class="role">🤖 KI-Begleiterin <span class="time">14:30</span></div>
+      <div class="content" data-testid="transcript-message">Hallo! Schön, dass wir wieder zusammen plaudern. Letztes Mal haben Sie mir von Ihrem Garten in Heidelberg erzählt — möchten Sie mir noch mehr davon erzählen, oder fällt Ihnen heute etwas anderes ein?</div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="turn user">
+      <div class="role">👵 Oma <span class="time">14:32</span></div>
+      <div class="content" data-testid="transcript-message">Ja, ich erinnere mich an den großen Apfelbaum im Garten. Mein Bruder Hans hat dort immer die schönsten Äpfel gepflückt. Das war in den Fünfzigern, als wir noch klein waren.</div>
+      <div class="entities" data-testid="entity-chips">
+        <span class="chip person" data-testid="entity-person">👤 Bruder Hans</span>
+        <span class="chip place" data-testid="entity-place">📍 Heidelberg</span>
+        <span class="chip year" data-testid="entity-year">📆 1950er</span>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="turn assistant">
+      <div class="role">🤖 KI-Begleiterin <span class="time">14:32</span></div>
+      <div class="content" data-testid="transcript-message">Oh, ein Apfelbaum! Das klingt wunderbar. Haben Sie und Ihr Bruder Hans dort oft zusammen gespielt? Erzählen Sie mir mehr über Ihre Kindheit in Heidelberg.</div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="turn user">
+      <div class="role">👵 Oma <span class="time">14:34</span></div>
+      <div class="content" data-testid="transcript-message">Der Hans war drei Jahre älter als ich. Er hat mich immer beschützt. Und unsere Tante Elfriede kam jeden Sonntag zum Kaffee — sie brachte immer ihren berühmten Streuselkuchen mit.</div>
+      <div class="entities" data-testid="entity-chips">
+        <span class="chip person" data-testid="entity-person">👤 Tante Elfriede</span>
+        <span class="chip event" data-testid="entity-event">⭐ Sonntagskaffee</span>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="turn assistant">
+      <div class="role">🤖 KI-Begleiterin <span class="time">14:34</span></div>
+      <div class="content" data-testid="transcript-message">Tante Elfriede und ihr Streuselkuchen — das klingt nach wunderschönen Sonntagen! Wohnte sie auch in Heidelberg, oder kam sie von weiter her?</div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="turn user">
+      <div class="role">👵 Oma <span class="time">14:36</span></div>
+      <div class="content" data-testid="transcript-message">Die Elfriede wohnte in Weinheim, das ist nicht weit von Heidelberg. Sie kam mit dem Bus. Manchmal hat sie auch ihren Mann mitgebracht, den Onkel Friedrich. Der war Bäckermeister — vielleicht hatte sie deshalb so gute Rezepte!</div>
+      <div class="entities" data-testid="entity-chips">
+        <span class="chip person" data-testid="entity-person">👤 Onkel Friedrich</span>
+        <span class="chip place" data-testid="entity-place">📍 Weinheim</span>
+        <span class="chip event" data-testid="entity-event">⭐ Bäckermeister</span>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="turn assistant">
+      <div class="role">🤖 KI-Begleiterin <span class="time">14:37</span></div>
+      <div class="content" data-testid="transcript-message">Ein Bäckermeister in der Familie — kein Wunder, dass der Streuselkuchen so berühmt war! Haben Sie selbst auch gerne gebacken? Oder gab es andere Dinge, die Sie als Kind besonders gerne gemacht haben?</div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="turn user">
+      <div class="role">👵 Oma <span class="time">14:39</span></div>
+      <div class="content" data-testid="transcript-message">Backen habe ich erst später gelernt, als ich nach München gezogen bin. Das war 1962, als ich geheiratet habe. Aber als Kind habe ich am liebsten im Garten gespielt und Bücher gelesen. Meine Mutter hatte eine kleine Bibliothek im Wohnzimmer.</div>
+      <div class="entities" data-testid="entity-chips">
+        <span class="chip place" data-testid="entity-place">📍 München</span>
+        <span class="chip year" data-testid="entity-year">📆 1962</span>
+        <span class="chip event" data-testid="entity-event">⭐ Hochzeit</span>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+</body>
+</html>

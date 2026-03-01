@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Omas Geschichten — Zeitstrahl</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --amber: #D97706; --amber-dark: #B45309; --honey: #F59E0B;
+  --cream: #FFFBEB; --linen: #FEF3C7; --warm-white: #FEFCE8;
+  --espresso: #451A03; --brown: #78350F; --cocoa: #92400E;
+  --border: #FDE68A;
+  --green: #059669; --green-bg: #D1FAE5;
+  --red: #DC2626; --red-bg: #FEE2E2;
+  --font-heading: Georgia, 'Times New Roman', serif;
+  --font-body: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  --radius: 12px; --radius-lg: 16px;
+  --person-bg: #DBEAFE; --person-text: #1E40AF;
+  --place-bg: #D1FAE5; --place-text: #065F46;
+  --year-bg: #FEF3C7; --year-text: #92400E;
+  --event-bg: #EDE9FE; --event-text: #5B21B6;
+}
+body { font-family: var(--font-body); font-size: 18px; line-height: 1.6; color: var(--espresso); background: var(--cream); min-height: 100vh; }
+a { color: var(--amber); text-decoration: none; font-weight: 600; }
+a:hover { color: var(--amber-dark); text-decoration: underline; }
+a:focus-visible { outline: 3px solid var(--amber-dark); outline-offset: 2px; border-radius: 4px; }
+
+nav { background: var(--cream); border-bottom: 2px solid var(--border); padding: 0 24px; height: 64px; display: flex; align-items: center; gap: 24px; position: sticky; top: 0; z-index: 100; }
+nav .brand { font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--espresso); margin-right: auto; }
+nav a { font-size: 18px; padding: 8px 4px; }
+nav a.active { color: var(--amber); border-bottom: 3px solid var(--amber); }
+
+main { max-width: 1000px; margin: 0 auto; padding: 32px 24px; }
+h1 { font-family: var(--font-heading); font-size: 30px; color: var(--espresso); margin-bottom: 8px; }
+.subtitle { font-size: 18px; color: var(--brown); margin-bottom: 32px; }
+
+/* Legend */
+.legend { display: flex; gap: 24px; margin-bottom: 24px; flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 8px; font-size: 16px; }
+.legend-bar { width: 32px; height: 16px; border-radius: 4px; }
+.legend-bar.covered { background: var(--green); }
+.legend-bar.thin { background: var(--honey); }
+.legend-bar.empty { background: #E5E7EB; }
+
+/* Timeline */
+.timeline { display: flex; flex-direction: column; gap: 12px; }
+.decade-row { display: flex; align-items: center; gap: 16px; padding: 16px; background: var(--linen); border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; transition: box-shadow 200ms, background 200ms; min-height: 64px; }
+.decade-row:hover { box-shadow: 0 4px 16px rgba(180,83,9,0.12); background: var(--warm-white); }
+.decade-row:focus-visible { outline: 3px solid var(--amber-dark); outline-offset: 2px; }
+.decade-row.active { border-color: var(--amber); border-width: 2px; background: var(--warm-white); }
+.decade-row.gap { border-left: 4px solid var(--honey); }
+.decade-row.gap.empty-decade { border-left: 4px dashed #D1D5DB; }
+
+.decade-label { font-family: var(--font-heading); font-size: 22px; font-weight: 700; min-width: 90px; color: var(--espresso); }
+.bar-container { flex: 1; display: flex; align-items: center; gap: 12px; }
+.bar { height: 24px; border-radius: 6px; transition: width 500ms ease; min-width: 4px; }
+.bar.covered { background: var(--green); }
+.bar.thin { background: var(--honey); }
+.bar.empty { background: #E5E7EB; width: 4px; }
+.bar-stats { font-size: 16px; color: var(--cocoa); min-width: 140px; white-space: nowrap; }
+.gap-label { font-size: 14px; color: var(--cocoa); background: var(--warm-white); border: 1px dashed var(--border); padding: 2px 10px; border-radius: 10px; white-space: nowrap; }
+
+/* Detail panel */
+.detail-panel { margin-top: 32px; display: none; }
+.detail-panel.visible { display: block; }
+.detail-header { font-family: var(--font-heading); font-size: 24px; color: var(--espresso); margin-bottom: 16px; display: flex; align-items: center; gap: 12px; }
+.detail-close { background: none; border: none; font-size: 24px; cursor: pointer; padding: 8px; min-width: 48px; min-height: 48px; border-radius: 50%; color: var(--cocoa); }
+.detail-close:hover { background: var(--linen); }
+.detail-close:focus-visible { outline: 3px solid var(--amber-dark); outline-offset: 2px; }
+
+.entity-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.entity-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+.entity-card .entity-name { font-weight: 700; font-size: 18px; display: flex; align-items: center; gap: 8px; }
+.entity-card .entity-context { font-size: 16px; color: var(--brown); margin-top: 6px; }
+.chip { padding: 3px 10px; border-radius: 12px; font-size: 13px; font-weight: 600; }
+.chip.person { background: var(--person-bg); color: var(--person-text); }
+.chip.place { background: var(--place-bg); color: var(--place-text); }
+.chip.year { background: var(--year-bg); color: var(--year-text); }
+.chip.event { background: var(--event-bg); color: var(--event-text); }
+
+.empty-detail { text-align: center; padding: 32px; color: var(--cocoa); font-size: 20px; }
+
+@media (max-width: 640px) {
+  nav { padding: 0 16px; gap: 16px; }
+  nav a { font-size: 16px; }
+  main { padding: 24px 16px; }
+  .decade-row { flex-wrap: wrap; }
+  .bar-stats { min-width: auto; }
+  .entity-grid { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<nav aria-label="Hauptnavigation">
+  <span class="brand">💛 Omas Geschichten</span>
+  <a href="conversation.html" data-testid="nav-conversation">Gespräch</a>
+  <a href="history.html" data-testid="nav-history">📖 Verlauf</a>
+  <a href="ask.html" data-testid="nav-ask">🔍 Fragen</a>
+  <a href="timeline.html" class="active" data-testid="nav-timeline">📅 Zeitstrahl</a>
+</nav>
+
+<main>
+  <h1>📅 Zeitstrahl — Omas Lebensgeschichte</h1>
+  <p class="subtitle">Klicke auf ein Jahrzehnt, um die Geschichten und Personen zu sehen</p>
+
+  <div class="legend" data-testid="timeline-legend">
+    <div class="legend-item"><span class="legend-bar covered"></span> Gut abgedeckt (3+ Einträge)</div>
+    <div class="legend-item"><span class="legend-bar thin"></span> Wenig erzählt (1–2 Einträge)</div>
+    <div class="legend-item"><span class="legend-bar empty"></span> Noch keine Geschichten</div>
+  </div>
+
+  <div class="timeline" data-testid="timeline">
+
+    <div class="decade-row gap empty-decade" tabindex="0" role="button" aria-label="1930er Jahre: keine Geschichten" data-testid="decade-1930s" onclick="showDecade('1930s')">
+      <span class="decade-label">1930er</span>
+      <div class="bar-container">
+        <div class="bar empty"></div>
+        <span class="bar-stats">0 Einträge · 0 Geschichten</span>
+      </div>
+      <span class="gap-label" data-testid="gap-indicator">wenig erzählt</span>
+    </div>
+
+    <div class="decade-row" tabindex="0" role="button" aria-label="1940er Jahre: 5 Einträge" data-testid="decade-1940s" onclick="showDecade('1940s')">
+      <span class="decade-label">1940er</span>
+      <div class="bar-container">
+        <div class="bar covered" style="width:42%"></div>
+        <span class="bar-stats">5 Einträge · 2 Geschichten</span>
+      </div>
+    </div>
+
+    <div class="decade-row" tabindex="0" role="button" aria-label="1950er Jahre: 12 Einträge" data-testid="decade-1950s" onclick="showDecade('1950s')">
+      <span class="decade-label">1950er</span>
+      <div class="bar-container">
+        <div class="bar covered" style="width:100%"></div>
+        <span class="bar-stats">12 Einträge · 4 Geschichten</span>
+      </div>
+    </div>
+
+    <div class="decade-row gap" tabindex="0" role="button" aria-label="1960er Jahre: 2 Einträge, wenig erzählt" data-testid="decade-1960s" onclick="showDecade('1960s')">
+      <span class="decade-label">1960er</span>
+      <div class="bar-container">
+        <div class="bar thin" style="width:17%"></div>
+        <span class="bar-stats">2 Einträge · 1 Geschichte</span>
+      </div>
+      <span class="gap-label" data-testid="gap-indicator">wenig erzählt</span>
+    </div>
+
+    <div class="decade-row gap empty-decade" tabindex="0" role="button" aria-label="1970er Jahre: keine Geschichten" data-testid="decade-1970s" onclick="showDecade('1970s')">
+      <span class="decade-label">1970er</span>
+      <div class="bar-container">
+        <div class="bar empty"></div>
+        <span class="bar-stats">0 Einträge · 0 Geschichten</span>
+      </div>
+      <span class="gap-label" data-testid="gap-indicator">wenig erzählt</span>
+    </div>
+
+    <div class="decade-row" tabindex="0" role="button" aria-label="1980er Jahre: 8 Einträge" data-testid="decade-1980s" onclick="showDecade('1980s')">
+      <span class="decade-label">1980er</span>
+      <div class="bar-container">
+        <div class="bar covered" style="width:67%"></div>
+        <span class="bar-stats">8 Einträge · 3 Geschichten</span>
+      </div>
+    </div>
+
+    <div class="decade-row" tabindex="0" role="button" aria-label="1990er Jahre: 3 Einträge" data-testid="decade-1990s" onclick="showDecade('1990s')">
+      <span class="decade-label">1990er</span>
+      <div class="bar-container">
+        <div class="bar covered" style="width:25%"></div>
+        <span class="bar-stats">3 Einträge · 1 Geschichte</span>
+      </div>
+    </div>
+
+    <div class="decade-row gap" tabindex="0" role="button" aria-label="2000er Jahre: 1 Eintrag, wenig erzählt" data-testid="decade-2000s" onclick="showDecade('2000s')">
+      <span class="decade-label">2000er</span>
+      <div class="bar-container">
+        <div class="bar thin" style="width:8%"></div>
+        <span class="bar-stats">1 Eintrag · 1 Geschichte</span>
+      </div>
+      <span class="gap-label" data-testid="gap-indicator">wenig erzählt</span>
+    </div>
+
+    <div class="decade-row gap empty-decade" tabindex="0" role="button" aria-label="2010er Jahre: keine Geschichten" data-testid="decade-2010s" onclick="showDecade('2010s')">
+      <span class="decade-label">2010er</span>
+      <div class="bar-container">
+        <div class="bar empty"></div>
+        <span class="bar-stats">0 Einträge · 0 Geschichten</span>
+      </div>
+      <span class="gap-label" data-testid="gap-indicator">wenig erzählt</span>
+    </div>
+
+    <div class="decade-row gap empty-decade" tabindex="0" role="button" aria-label="2020er Jahre: keine Geschichten" data-testid="decade-2020s" onclick="showDecade('2020s')">
+      <span class="decade-label">2020er</span>
+      <div class="bar-container">
+        <div class="bar empty"></div>
+        <span class="bar-stats">0 Einträge · 0 Geschichten</span>
+      </div>
+      <span class="gap-label" data-testid="gap-indicator">wenig erzählt</span>
+    </div>
+
+  </div>
+
+  <div class="detail-panel" id="detailPanel" data-testid="decade-detail">
+    <div class="detail-header">
+      <span id="detailTitle" data-testid="detail-title">1950er Jahre</span>
+      <button class="detail-close" onclick="closeDetail()" aria-label="Detail schließen" data-testid="close-detail">✕</button>
+    </div>
+    <div class="entity-grid" id="entityGrid" data-testid="entity-grid">
+    </div>
+  </div>
+</main>
+
+<script>
+const entities = {
+  '1930s': [],
+  '1940s': [
+    { name: 'Vater (Georg)', type: 'person', context: 'Omas Vater, Schreiner in Hamburg' },
+    { name: 'Hamburg', type: 'place', context: 'Geburtsstadt von Oma' },
+    { name: 'Mutter (Helene)', type: 'person', context: 'Omas Mutter, Schneiderin' },
+    { name: '1945', type: 'year', context: 'Kriegsende, Familie zog nach Heidelberg' },
+    { name: 'Umzug nach Heidelberg', type: 'event', context: 'Die Familie zog 1945 von Hamburg nach Heidelberg' },
+  ],
+  '1950s': [
+    { name: 'Bruder Hans', type: 'person', context: 'Drei Jahre älter, hat Oma immer beschützt' },
+    { name: 'Tante Elfriede', type: 'person', context: 'Kam jeden Sonntag zum Kaffee mit Streuselkuchen' },
+    { name: 'Onkel Friedrich', type: 'person', context: 'Mann von Tante Elfriede, Bäckermeister' },
+    { name: 'Heidelberg', type: 'place', context: 'Kindheit und Jugend' },
+    { name: 'Weinheim', type: 'place', context: 'Wohnort von Tante Elfriede' },
+    { name: 'Bergstraße', type: 'place', context: 'Straße mit dem Café, wo Oma ihren Mann traf' },
+    { name: 'Apfelbaum im Garten', type: 'event', context: 'Bruder Hans pflückte dort die schönsten Äpfel' },
+    { name: 'Sonntagskaffee', type: 'event', context: 'Wöchentliches Ritual mit Tante Elfriede' },
+    { name: '1952', type: 'year', context: 'Einschulung von Oma' },
+    { name: '1955', type: 'year', context: 'Bruder Hans fing Schreinerlehre an' },
+    { name: 'Nachbarin Frau Müller', type: 'person', context: 'Nette Nachbarin, passte manchmal auf die Kinder auf' },
+    { name: 'Schulgarten', type: 'place', context: 'Oma half dort mit den Blumenbeeten' },
+  ],
+  '1960s': [
+    { name: 'München', type: 'place', context: 'Oma zog 1962 nach München nach der Hochzeit' },
+    { name: 'Hochzeit 1962', type: 'event', context: 'Oma heiratete und zog nach München' },
+  ],
+  '1970s': [],
+  '1980s': [
+    { name: 'Enkel Thomas', type: 'person', context: 'Erstes Enkelkind, geboren 1983' },
+    { name: 'Garten in München', type: 'place', context: 'Oma hatte einen großen Gemüsegarten' },
+    { name: '1983', type: 'year', context: 'Geburt des ersten Enkels' },
+    { name: 'Gartenverein', type: 'event', context: 'Oma war aktiv im örtlichen Gartenverein' },
+    { name: 'Enkelin Maria', type: 'person', context: 'Zweites Enkelkind, geboren 1986' },
+    { name: '1986', type: 'year', context: 'Geburt der zweiten Enkelin' },
+    { name: 'Sommerurlaub Bodensee', type: 'event', context: 'Jährliche Familienurlaube am Bodensee' },
+    { name: 'Bodensee', type: 'place', context: 'Jährliches Urlaubsziel der Familie' },
+  ],
+  '1990s': [
+    { name: 'Ruhestand', type: 'event', context: 'Oma ging 1993 in den Ruhestand' },
+    { name: '1993', type: 'year', context: 'Jahr des Ruhestands' },
+    { name: 'Malerei', type: 'event', context: 'Oma begann im Ruhestand zu malen' },
+  ],
+  '2000s': [
+    { name: '2005', type: 'year', context: 'Goldene Hochzeit' },
+  ],
+  '2010s': [],
+  '2020s': [],
+};
+
+const typeIcon = { person: '👤', place: '📍', year: '📆', event: '⭐' };
+
+function showDecade(decade) {
+  const panel = document.getElementById('detailPanel');
+  const title = document.getElementById('detailTitle');
+  const grid = document.getElementById('entityGrid');
+
+  // Highlight active row
+  document.querySelectorAll('.decade-row').forEach(r => r.classList.remove('active'));
+  const row = document.querySelector('[data-testid="decade-' + decade + '"]');
+  if (row) row.classList.add('active');
+
+  const label = decade.replace('s','er');
+  title.textContent = label + ' Jahre';
+  grid.innerHTML = '';
+
+  const items = entities[decade] || [];
+  if (items.length === 0) {
+    grid.innerHTML = '<div class="empty-detail">Noch keine Geschichten aus diesem Jahrzehnt. 💛<br>Fragen Sie Oma beim nächsten Gespräch!</div>';
+  } else {
+    items.forEach(e => {
+      const card = document.createElement('div');
+      card.className = 'entity-card';
+      card.setAttribute('data-testid', 'entity-card');
+      card.innerHTML =
+        '<div class="entity-name"><span class="chip ' + e.type + '">' + (typeIcon[e.type]||'') + ' ' + e.type + '</span> ' + e.name + '</div>' +
+        '<div class="entity-context">' + e.context + '</div>';
+      grid.appendChild(card);
+    });
+  }
+  panel.classList.add('visible');
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function closeDetail() {
+  document.getElementById('detailPanel').classList.remove('visible');
+  document.querySelectorAll('.decade-row').forEach(r => r.classList.remove('active'));
+}
+</script>
+</body>
+</html>

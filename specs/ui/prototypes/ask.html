@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Omas Geschichten — Fragen</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --amber: #D97706; --amber-dark: #B45309; --honey: #F59E0B;
+  --cream: #FFFBEB; --linen: #FEF3C7; --warm-white: #FEFCE8;
+  --espresso: #451A03; --brown: #78350F; --cocoa: #92400E;
+  --border: #FDE68A;
+  --font-heading: Georgia, 'Times New Roman', serif;
+  --font-body: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  --radius: 12px; --radius-lg: 16px;
+}
+body { font-family: var(--font-body); font-size: 18px; line-height: 1.6; color: var(--espresso); background: var(--cream); min-height: 100vh; }
+a { color: var(--amber); text-decoration: none; font-weight: 600; }
+a:hover { color: var(--amber-dark); text-decoration: underline; }
+a:focus-visible { outline: 3px solid var(--amber-dark); outline-offset: 2px; border-radius: 4px; }
+
+nav { background: var(--cream); border-bottom: 2px solid var(--border); padding: 0 24px; height: 64px; display: flex; align-items: center; gap: 24px; position: sticky; top: 0; z-index: 100; }
+nav .brand { font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--espresso); margin-right: auto; }
+nav a { font-size: 18px; padding: 8px 4px; }
+nav a.active { color: var(--amber); border-bottom: 3px solid var(--amber); }
+
+main { max-width: 800px; margin: 0 auto; padding: 32px 24px; }
+
+h1 { font-family: var(--font-heading); font-size: 30px; color: var(--espresso); margin-bottom: 8px; text-align: center; }
+.subtitle { text-align: center; font-size: 20px; color: var(--brown); margin-bottom: 32px; }
+
+/* Search area */
+.search-area { margin-bottom: 32px; }
+.search-row { display: flex; gap: 12px; }
+.search-row input { flex: 1; font-family: var(--font-body); font-size: 18px; padding: 16px 20px; border: 2px solid var(--border); border-radius: var(--radius); background: #fff; color: var(--espresso); }
+.search-row input:focus { border-color: var(--amber); box-shadow: 0 0 0 3px rgba(217,119,6,0.2); outline: none; }
+.search-row input::placeholder { color: var(--cocoa); opacity: 0.6; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 16px 32px; border: none; border-radius: var(--radius); font-family: var(--font-body); font-size: 18px; font-weight: 600; cursor: pointer; min-width: 48px; min-height: 48px; transition: background 200ms; }
+.btn:focus-visible { outline: 3px solid var(--amber-dark); outline-offset: 2px; }
+.btn-primary { background: var(--amber); color: #fff; }
+.btn-primary:hover { background: var(--amber-dark); }
+.validation-msg { color: #DC2626; font-size: 16px; margin-top: 8px; display: none; }
+
+/* Example chips */
+.examples { margin-top: 20px; }
+.examples p { font-size: 16px; color: var(--cocoa); margin-bottom: 10px; }
+.chip-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.example-chip { padding: 10px 18px; background: var(--linen); border: 1px solid var(--border); border-radius: 20px; font-size: 16px; color: var(--brown); cursor: pointer; transition: background 200ms, border-color 200ms; font-family: var(--font-body); min-height: 48px; display: flex; align-items: center; }
+.example-chip:hover { background: var(--honey); color: var(--espresso); border-color: var(--amber); }
+.example-chip:focus-visible { outline: 3px solid var(--amber-dark); outline-offset: 2px; }
+
+/* Loading */
+.loading { text-align: center; padding: 48px 24px; display: none; }
+.loading .spinner { font-size: 36px; animation: spin 1.5s linear infinite; display: inline-block; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.loading p { font-size: 20px; color: var(--brown); margin-top: 12px; }
+
+/* Answer area */
+.answer-area { display: none; }
+.answer-card { background: var(--linen); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 24px; }
+.answer-card .answer-text { font-size: 20px; line-height: 1.7; color: var(--espresso); }
+
+.sources { margin-top: 24px; }
+.sources h2 { font-family: var(--font-heading); font-size: 22px; color: var(--espresso); margin-bottom: 12px; }
+.source-card { background: var(--warm-white); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
+.source-card .source-date { font-weight: 600; color: var(--amber); font-size: 16px; }
+.source-card .source-excerpt { color: var(--brown); font-size: 16px; margin-top: 6px; font-style: italic; }
+.source-card a { font-size: 16px; margin-top: 8px; display: inline-block; }
+
+/* No results */
+.no-results { text-align: center; padding: 48px 24px; display: none; }
+.no-results .emoji { font-size: 64px; margin-bottom: 16px; }
+.no-results p { font-size: 20px; color: var(--brown); }
+.no-results .suggestion { margin-top: 16px; font-size: 18px; color: var(--cocoa); }
+
+@media (max-width: 640px) {
+  nav { padding: 0 16px; gap: 16px; }
+  nav a { font-size: 16px; }
+  main { padding: 24px 16px; }
+  .search-row { flex-direction: column; }
+  .search-row .btn { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<nav aria-label="Hauptnavigation">
+  <span class="brand">💛 Omas Geschichten</span>
+  <a href="conversation.html" data-testid="nav-conversation">Gespräch</a>
+  <a href="history.html" data-testid="nav-history">📖 Verlauf</a>
+  <a href="ask.html" class="active" data-testid="nav-ask">🔍 Fragen</a>
+  <a href="timeline.html" data-testid="nav-timeline">📅 Zeitstrahl</a>
+</nav>
+
+<main>
+  <h1>🔍 Was möchtest du wissen?</h1>
+  <p class="subtitle">Frag nach Personen, Orten, Zeiten oder Ereignissen aus Omas Geschichten</p>
+
+  <div class="search-area">
+    <div class="search-row">
+      <input type="text" id="questionInput" placeholder="Was möchten Sie wissen?" aria-label="Frage eingeben" data-testid="question-input">
+      <button class="btn btn-primary" id="askBtn" data-testid="ask-button">Fragen</button>
+    </div>
+    <div class="validation-msg" id="validationMsg" data-testid="validation-message">Bitte stellen Sie eine Frage.</div>
+
+    <div class="examples">
+      <p>Beispielfragen:</p>
+      <div class="chip-row">
+        <button class="example-chip" data-testid="example-chip" onclick="setQuestion('Was weißt du über Onkel Hans?')">Was weißt du über Onkel Hans?</button>
+        <button class="example-chip" data-testid="example-chip" onclick="setQuestion('Wie war Omas Kindheit in Heidelberg?')">Wie war Omas Kindheit in Heidelberg?</button>
+        <button class="example-chip" data-testid="example-chip" onclick="setQuestion('Wer ist Tante Elfriede?')">Wer ist Tante Elfriede?</button>
+        <button class="example-chip" data-testid="example-chip" onclick="setQuestion('Was passierte in den 1960er Jahren?')">Was passierte in den 1960er Jahren?</button>
+        <button class="example-chip" data-testid="example-chip" onclick="setQuestion('Erzähl mir von der Hochzeit')">Erzähl mir von der Hochzeit</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="loading" id="loading" data-testid="loading-state">
+    <div class="spinner">⏳</div>
+    <p>Suche in Omas Geschichten…</p>
+  </div>
+
+  <div class="answer-area" id="answerArea" data-testid="answer-area">
+    <div class="answer-card">
+      <div class="answer-text" data-testid="answer-text">
+        Onkel Hans war Omas Bruder. Er war drei Jahre älter als sie und hat sie als Kind immer beschützt. Zusammen sind sie in Heidelberg aufgewachsen, wo sie einen großen Apfelbaum im Garten hatten — Hans hat dort immer die schönsten Äpfel gepflückt. In den 1960er Jahren ist Hans nach München gezogen, wo er als Schreiner gearbeitet hat. Oma erinnert sich besonders gerne daran, dass er jeden Sommer nach Heidelberg zurückkam und immer selbstgemachte Marmelade mitbrachte.
+      </div>
+    </div>
+
+    <div class="sources">
+      <h2>📖 Quellen</h2>
+      <div class="source-card" data-testid="source-reference">
+        <div class="source-date">15. Januar 2025</div>
+        <div class="source-excerpt">„Mein Bruder Hans hat dort immer die schönsten Äpfel gepflückt. Das war in den Fünfzigern, als wir noch klein waren."</div>
+        <a href="transcript.html" data-testid="source-link">→ Gespräch ansehen</a>
+      </div>
+      <div class="source-card" data-testid="source-reference">
+        <div class="source-date">12. Januar 2025</div>
+        <div class="source-excerpt">„Der Hans ist in den Sechzigern nach München gezogen. Er hat als Schreiner gearbeitet und immer seine Marmelade mitgebracht, wenn er im Sommer kam."</div>
+        <a href="transcript.html" data-testid="source-link">→ Gespräch ansehen</a>
+      </div>
+      <div class="source-card" data-testid="source-reference">
+        <div class="source-date">8. Januar 2025</div>
+        <div class="source-excerpt">„Der Hans war drei Jahre älter. Er hat mich immer beschützt, besonders im Winter, wenn es glatt war auf dem Schulweg."</div>
+        <a href="transcript.html" data-testid="source-link">→ Gespräch ansehen</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="no-results" id="noResults" data-testid="no-results-state">
+    <div class="emoji">🤷</div>
+    <p>Dazu hat Oma leider noch nichts erzählt.</p>
+    <p class="suggestion">Vielleicht können Sie sie beim nächsten Gespräch danach fragen!</p>
+    <a href="conversation.html" class="btn btn-primary" style="margin-top:24px;" data-testid="start-conversation-link">💛 Gespräch starten</a>
+  </div>
+</main>
+
+<script>
+const input = document.getElementById('questionInput');
+const askBtn = document.getElementById('askBtn');
+const loading = document.getElementById('loading');
+const answerArea = document.getElementById('answerArea');
+const noResults = document.getElementById('noResults');
+const validation = document.getElementById('validationMsg');
+
+function setQuestion(q) {
+  input.value = q;
+  input.focus();
+  validation.style.display = 'none';
+}
+
+function hideAll() {
+  loading.style.display = 'none';
+  answerArea.style.display = 'none';
+  noResults.style.display = 'none';
+  validation.style.display = 'none';
+}
+
+askBtn.addEventListener('click', () => {
+  hideAll();
+  const q = input.value.trim();
+  if (!q) {
+    validation.style.display = 'block';
+    return;
+  }
+  loading.style.display = 'block';
+  // Simulate search
+  setTimeout(() => {
+    loading.style.display = 'none';
+    const hasResults = !q.toLowerCase().includes('katze') && !q.toLowerCase().includes('auto');
+    if (hasResults) {
+      answerArea.style.display = 'block';
+    } else {
+      noResults.style.display = 'block';
+    }
+  }, 2000);
+});
+
+input.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') askBtn.click();
+});
+</script>
+</body>
+</html>

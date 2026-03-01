@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Omas Geschichten — Gespräch</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --amber: #D97706; --amber-dark: #B45309; --honey: #F59E0B;
+  --cream: #FFFBEB; --linen: #FEF3C7; --warm-white: #FEFCE8;
+  --espresso: #451A03; --brown: #78350F; --cocoa: #92400E;
+  --green: #16A34A; --purple: #7C3AED; --red: #DC2626;
+  --border: #FDE68A;
+  --font-heading: Georgia, 'Times New Roman', serif;
+  --font-body: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  --radius: 12px; --radius-lg: 16px;
+}
+body { font-family: var(--font-body); font-size: 18px; line-height: 1.6; color: var(--espresso); background: var(--cream); min-height: 100vh; display: flex; flex-direction: column; }
+a { color: var(--amber); text-decoration: none; font-weight: 600; }
+a:hover { color: var(--amber-dark); text-decoration: underline; }
+a:focus-visible { outline: 3px solid var(--amber-dark); outline-offset: 2px; border-radius: 4px; }
+
+/* Nav */
+nav { background: var(--cream); border-bottom: 2px solid var(--border); padding: 0 24px; height: 64px; display: flex; align-items: center; gap: 24px; position: sticky; top: 0; z-index: 100; }
+nav .brand { font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--espresso); margin-right: auto; }
+nav a { font-size: 18px; padding: 8px 4px; }
+nav a.active { color: var(--amber); border-bottom: 3px solid var(--amber); }
+
+/* Main layout */
+main { flex: 1; display: flex; flex-direction: column; max-width: 800px; width: 100%; margin: 0 auto; padding: 0 24px; }
+
+/* Welcome header */
+.welcome { text-align: center; padding: 32px 0 16px; }
+.welcome h1 { font-family: var(--font-heading); font-size: 36px; color: var(--espresso); }
+.welcome p { font-size: 20px; color: var(--brown); margin-top: 8px; }
+
+/* Chat area */
+.chat-area { flex: 1; overflow-y: auto; padding: 16px 0; display: flex; flex-direction: column; gap: 16px; min-height: 300px; }
+.message { max-width: 80%; padding: 16px 20px; font-size: 20px; line-height: 1.5; animation: msgIn 300ms ease-out; }
+@keyframes msgIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+.message.assistant { align-self: flex-start; background: var(--linen); color: var(--espresso); border-radius: 16px 16px 16px 4px; border: 1px solid var(--border); }
+.message.user { align-self: flex-end; background: var(--amber); color: #fff; border-radius: 16px 16px 4px 16px; }
+.message .meta { font-size: 14px; opacity: 0.7; margin-top: 6px; }
+
+/* Voice state */
+.voice-state { text-align: center; padding: 12px; font-size: 18px; color: var(--brown); min-height: 56px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+.voice-state .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; }
+.voice-state .dot.idle { background: #9CA3AF; }
+.voice-state .dot.listening { background: var(--green); animation: pulse 1.5s ease-in-out infinite; }
+.voice-state .dot.thinking { background: var(--amber); animation: pulse 1.2s ease-in-out infinite; }
+.voice-state .dot.speaking { background: var(--purple); animation: pulse 1.5s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.5); opacity: 0.6; } }
+
+/* Input area */
+.input-area { padding: 16px 0 24px; display: flex; flex-direction: column; gap: 12px; border-top: 2px solid var(--border); }
+.input-row { display: flex; gap: 12px; align-items: flex-end; }
+.input-row textarea { flex: 1; font-family: var(--font-body); font-size: 18px; padding: 16px 20px; border: 2px solid var(--border); border-radius: var(--radius); background: #fff; color: var(--espresso); resize: none; min-height: 56px; max-height: 150px; line-height: 1.4; }
+.input-row textarea:focus { border-color: var(--amber); box-shadow: 0 0 0 3px rgba(217,119,6,0.2); outline: none; }
+.input-row textarea::placeholder { color: var(--cocoa); opacity: 0.6; }
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 16px 32px; border: none; border-radius: var(--radius); font-family: var(--font-body); font-size: 18px; font-weight: 600; cursor: pointer; min-width: 48px; min-height: 48px; transition: background 200ms, box-shadow 200ms; }
+.btn:focus-visible { outline: 3px solid var(--amber-dark); outline-offset: 2px; }
+.btn-primary { background: var(--amber); color: #fff; }
+.btn-primary:hover { background: var(--amber-dark); }
+.btn-mic { background: var(--linen); color: var(--espresso); border: 2px solid var(--border); border-radius: 50%; width: 56px; height: 56px; padding: 0; font-size: 24px; }
+.btn-mic.active { background: var(--green); color: #fff; border-color: var(--green); }
+.btn-danger { background: var(--red); color: #fff; }
+.btn-danger:hover { background: #B91C1C; }
+.btn-secondary { background: transparent; color: var(--amber); border: 2px solid var(--amber); }
+.btn-secondary:hover { background: var(--linen); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.action-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+/* Responsive */
+@media (max-width: 640px) {
+  nav { padding: 0 16px; gap: 16px; }
+  nav a { font-size: 16px; }
+  main { padding: 0 16px; }
+  .message { max-width: 90%; font-size: 18px; }
+  .welcome h1 { font-size: 28px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<nav aria-label="Hauptnavigation">
+  <span class="brand">💛 Omas Geschichten</span>
+  <a href="conversation.html" class="active" data-testid="nav-conversation">Gespräch</a>
+  <a href="history.html" data-testid="nav-history">📖 Verlauf</a>
+  <a href="ask.html" data-testid="nav-ask">🔍 Fragen</a>
+  <a href="timeline.html" data-testid="nav-timeline">📅 Zeitstrahl</a>
+</nav>
+
+<main>
+  <div class="welcome">
+    <h1>💛 Omas Geschichten</h1>
+    <p>Erzähl mir von deinem Leben — ich höre gerne zu.</p>
+  </div>
+
+  <div class="chat-area" role="log" aria-label="Gesprächsverlauf" aria-live="polite" data-testid="chat-area">
+    <div class="message assistant" data-testid="message-assistant">
+      <div>Hallo! Schön, dass wir wieder zusammen plaudern. Letztes Mal haben Sie mir von Ihrem Garten in Heidelberg erzählt — möchten Sie mir noch mehr davon erzählen, oder fällt Ihnen heute etwas anderes ein?</div>
+      <div class="meta">14:30</div>
+    </div>
+    <div class="message user" data-testid="message-user">
+      <div>Ja, ich erinnere mich an den großen Apfelbaum im Garten. Mein Bruder Hans hat dort immer die schönsten Äpfel gepflückt. Das war in den Fünfzigern, als wir noch klein waren.</div>
+      <div class="meta">14:32</div>
+    </div>
+    <div class="message assistant" data-testid="message-assistant">
+      <div>Oh, ein Apfelbaum! Das klingt wunderbar. Haben Sie und Ihr Bruder Hans dort oft zusammen gespielt? Erzählen Sie mir mehr über Ihre Kindheit in Heidelberg.</div>
+      <div class="meta">14:32</div>
+    </div>
+    <div class="message user" data-testid="message-user">
+      <div>Der Hans war drei Jahre älter als ich. Er hat mich immer beschützt. Und unsere Tante Elfriede kam jeden Sonntag zum Kaffee — sie brachte immer ihren berühmten Streuselkuchen mit.</div>
+      <div class="meta">14:34</div>
+    </div>
+    <div class="message assistant" data-testid="message-assistant">
+      <div>Tante Elfriede und ihr Streuselkuchen — das klingt nach wunderschönen Sonntagen! Wohnte sie auch in Heidelberg, oder kam sie von weiter her?</div>
+      <div class="meta">14:34</div>
+    </div>
+  </div>
+
+  <div class="voice-state" aria-live="polite" data-testid="voice-state">
+    <span class="dot listening" data-testid="voice-indicator"></span>
+    <span data-testid="voice-label">Ich höre zu…</span>
+  </div>
+
+  <div class="input-area">
+    <div class="input-row">
+      <textarea rows="1" placeholder="Schreiben Sie hier…" aria-label="Nachricht eingeben" data-testid="message-input"></textarea>
+      <button class="btn btn-mic active" aria-label="Mikrofon ausschalten" aria-pressed="true" data-testid="mic-button">🎤</button>
+      <button class="btn btn-primary" aria-label="Nachricht senden" data-testid="send-button">➤</button>
+    </div>
+    <div class="action-row">
+      <button class="btn btn-danger" data-testid="end-conversation-button">⏹ Gespräch beenden</button>
+    </div>
+  </div>
+</main>
+
+<script>
+// Interactive demo logic
+const micBtn = document.querySelector('[data-testid="mic-button"]');
+const voiceIndicator = document.querySelector('[data-testid="voice-indicator"]');
+const voiceLabel = document.querySelector('[data-testid="voice-label"]');
+const chatArea = document.querySelector('[data-testid="chat-area"]');
+const sendBtn = document.querySelector('[data-testid="send-button"]');
+const input = document.querySelector('[data-testid="message-input"]');
+const endBtn = document.querySelector('[data-testid="end-conversation-button"]');
+
+const states = [
+  { cls: 'idle', label: 'Bereit zum Starten', icon: '🎤', pressed: false },
+  { cls: 'listening', label: 'Ich höre zu…', icon: '🎤', pressed: true },
+  { cls: 'thinking', label: 'Denke nach…', icon: '🧠', pressed: true },
+  { cls: 'speaking', label: 'Spreche Antwort…', icon: '🔊', pressed: true },
+];
+let stateIdx = 1;
+
+micBtn.addEventListener('click', () => {
+  stateIdx = stateIdx === 1 ? 0 : 1;
+  const s = states[stateIdx];
+  voiceIndicator.className = 'dot ' + s.cls;
+  voiceLabel.textContent = s.label;
+  micBtn.setAttribute('aria-pressed', s.pressed);
+  micBtn.classList.toggle('active', s.pressed);
+});
+
+function addMessage(text, role) {
+  const div = document.createElement('div');
+  div.className = 'message ' + role;
+  div.setAttribute('data-testid', 'message-' + role);
+  const now = new Date();
+  div.innerHTML = '<div>' + text + '</div><div class="meta">' + now.getHours() + ':' + String(now.getMinutes()).padStart(2,'0') + '</div>';
+  chatArea.appendChild(div);
+  chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+sendBtn.addEventListener('click', () => {
+  const text = input.value.trim();
+  if (!text) return;
+  addMessage(text, 'user');
+  input.value = '';
+  // Simulate AI thinking
+  voiceIndicator.className = 'dot thinking';
+  voiceLabel.textContent = 'Denke nach…';
+  setTimeout(() => {
+    addMessage('Das ist sehr interessant! Erzählen Sie mir bitte noch mehr darüber.', 'assistant');
+    voiceIndicator.className = 'dot listening';
+    voiceLabel.textContent = 'Ich höre zu…';
+  }, 1500);
+});
+
+input.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendBtn.click(); }
+});
+
+endBtn.addEventListener('click', () => {
+  addMessage('Vielen Dank für das schöne Gespräch! Ihre Geschichten sind wunderbar. Bis zum nächsten Mal! 💛', 'assistant');
+  voiceIndicator.className = 'dot idle';
+  voiceLabel.textContent = 'Gespräch beendet';
+  micBtn.disabled = true;
+  sendBtn.disabled = true;
+  input.disabled = true;
+  endBtn.disabled = true;
+});
+</script>
+</body>
+</html>

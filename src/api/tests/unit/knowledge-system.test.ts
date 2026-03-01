@@ -51,9 +51,8 @@ describe('Knowledge System — Increment 3', () => {
     mockedIsConfigured.mockReturnValue(true);
   });
 
-  // Helper: create a session
+  // Helper: create a session (static welcome, no AI call needed)
   async function createTestSession() {
-    mockedChatCompletion.mockResolvedValueOnce('Hallo! Erzähl mir eine Geschichte.');
     const res = await request(app).post('/api/stories/sessions');
     return res;
   }

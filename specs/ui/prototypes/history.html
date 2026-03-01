@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Omas Geschichten — Verlauf</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --amber: #D97706; --amber-dark: #B45309; --honey: #F59E0B;
+  --cream: #FFFBEB; --linen: #FEF3C7; --warm-white: #FEFCE8;
+  --espresso: #451A03; --brown: #78350F; --cocoa: #92400E;
+  --border: #FDE68A;
+  --font-heading: Georgia, 'Times New Roman', serif;
+  --font-body: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  --radius: 12px; --radius-lg: 16px;
+}
+body { font-family: var(--font-body); font-size: 18px; line-height: 1.6; color: var(--espresso); background: var(--cream); min-height: 100vh; }
+a { color: var(--amber); text-decoration: none; font-weight: 600; }
+a:hover { color: var(--amber-dark); text-decoration: underline; }
+a:focus-visible { outline: 3px solid var(--amber-dark); outline-offset: 2px; border-radius: 4px; }
+
+nav { background: var(--cream); border-bottom: 2px solid var(--border); padding: 0 24px; height: 64px; display: flex; align-items: center; gap: 24px; position: sticky; top: 0; z-index: 100; }
+nav .brand { font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--espresso); margin-right: auto; }
+nav a { font-size: 18px; padding: 8px 4px; }
+nav a.active { color: var(--amber); border-bottom: 3px solid var(--amber); }
+
+main { max-width: 800px; margin: 0 auto; padding: 32px 24px; }
+h1 { font-family: var(--font-heading); font-size: 30px; color: var(--espresso); margin-bottom: 24px; }
+
+/* Session cards */
+.session-list { display: flex; flex-direction: column; gap: 16px; }
+.session-card { background: var(--linen); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; cursor: pointer; transition: box-shadow 200ms; text-decoration: none; color: inherit; display: block; }
+.session-card:hover { box-shadow: 0 4px 16px rgba(180,83,9,0.15); text-decoration: none; color: inherit; }
+.session-card:focus-visible { outline: 3px solid var(--amber-dark); outline-offset: 2px; }
+.session-card .date { font-family: var(--font-heading); font-size: 22px; font-weight: 600; color: var(--espresso); }
+.session-card .summary { margin-top: 8px; color: var(--brown); font-size: 18px; }
+.session-card .meta-row { display: flex; gap: 24px; margin-top: 12px; font-size: 16px; color: var(--cocoa); flex-wrap: wrap; }
+.session-card .meta-item { display: flex; align-items: center; gap: 6px; }
+
+/* Empty state */
+.empty-state { text-align: center; padding: 64px 24px; }
+.empty-state .emoji { font-size: 64px; margin-bottom: 16px; }
+.empty-state p { font-size: 20px; color: var(--brown); margin-bottom: 24px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 16px 32px; border: none; border-radius: var(--radius); font-family: var(--font-body); font-size: 18px; font-weight: 600; cursor: pointer; min-width: 48px; min-height: 48px; transition: background 200ms; }
+.btn:focus-visible { outline: 3px solid var(--amber-dark); outline-offset: 2px; }
+.btn-primary { background: var(--amber); color: #fff; }
+.btn-primary:hover { background: var(--amber-dark); }
+.btn-secondary { background: transparent; color: var(--amber); border: 2px solid var(--amber); }
+.btn-secondary:hover { background: var(--linen); }
+
+.load-more { text-align: center; margin-top: 24px; }
+
+/* Toggle */
+.toggle-row { display: flex; gap: 12px; margin-bottom: 24px; }
+.toggle-btn { padding: 8px 20px; border: 2px solid var(--border); border-radius: 20px; background: var(--warm-white); font-size: 16px; cursor: pointer; font-family: var(--font-body); font-weight: 600; color: var(--brown); min-height: 48px; }
+.toggle-btn.active { background: var(--amber); color: #fff; border-color: var(--amber); }
+.toggle-btn:focus-visible { outline: 3px solid var(--amber-dark); outline-offset: 2px; }
+
+@media (max-width: 640px) {
+  nav { padding: 0 16px; gap: 16px; }
+  nav a { font-size: 16px; }
+  main { padding: 24px 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<nav aria-label="Hauptnavigation">
+  <span class="brand">💛 Omas Geschichten</span>
+  <a href="conversation.html" data-testid="nav-conversation">Gespräch</a>
+  <a href="history.html" class="active" data-testid="nav-history">📖 Verlauf</a>
+  <a href="ask.html" data-testid="nav-ask">🔍 Fragen</a>
+  <a href="timeline.html" data-testid="nav-timeline">📅 Zeitstrahl</a>
+</nav>
+
+<main>
+  <h1>📖 Gesprächsverlauf</h1>
+
+  <div class="toggle-row">
+    <button class="toggle-btn active" data-testid="filter-all" onclick="showAll()">Alle</button>
+    <button class="toggle-btn" data-testid="filter-recent" onclick="showRecent()">Letzte 7 Tage</button>
+  </div>
+
+  <div class="session-list" id="sessionList" data-testid="session-list">
+
+    <a href="transcript.html" class="session-card" data-testid="session-card" aria-label="Gespräch vom 15. Januar 2025">
+      <div class="date">15. Januar 2025</div>
+      <div class="summary">Oma erzählte von ihrer Kindheit in Heidelberg in den 1950er Jahren. Besonders lebendig waren die Erinnerungen an den Apfelbaum im Garten und an ihren Bruder Hans...</div>
+      <div class="meta-row">
+        <span class="meta-item">💬 24 Nachrichten</span>
+        <span class="meta-item">⏱ 40 Minuten</span>
+        <span class="meta-item">👤 3 Personen erwähnt</span>
+      </div>
+    </a>
+
+    <a href="transcript.html" class="session-card" data-testid="session-card" aria-label="Gespräch vom 12. Januar 2025">
+      <div class="date">12. Januar 2025</div>
+      <div class="summary">Ein Gespräch über die Nachkriegszeit in Hamburg. Oma sprach über ihren Vater, der als Schreiner arbeitete, und die schwierigen Winter der späten 1940er Jahre...</div>
+      <div class="meta-row">
+        <span class="meta-item">💬 18 Nachrichten</span>
+        <span class="meta-item">⏱ 35 Minuten</span>
+        <span class="meta-item">👤 4 Personen erwähnt</span>
+      </div>
+    </a>
+
+    <a href="transcript.html" class="session-card" data-testid="session-card" aria-label="Gespräch vom 8. Januar 2025">
+      <div class="date">8. Januar 2025</div>
+      <div class="summary">Oma erzählte von ihrer Hochzeit 1962 und dem Umzug nach München. Sie erinnerte sich an das kleine Café an der Bergstraße, wo sie ihren Mann zum ersten Mal traf...</div>
+      <div class="meta-row">
+        <span class="meta-item">💬 32 Nachrichten</span>
+        <span class="meta-item">⏱ 55 Minuten</span>
+        <span class="meta-item">👤 6 Personen erwähnt</span>
+      </div>
+    </a>
+
+    <a href="transcript.html" class="session-card" data-testid="session-card" aria-label="Gespräch vom 3. Januar 2025">
+      <div class="date">3. Januar 2025</div>
+      <div class="summary">Geschichten über Tante Elfriede und ihre berühmten Sonntagskuchen. Oma beschrieb das Familienleben in den 1960er Jahren und die Sommerurlaube am Bodensee...</div>
+      <div class="meta-row">
+        <span class="meta-item">💬 28 Nachrichten</span>
+        <span class="meta-item">⏱ 45 Minuten</span>
+        <span class="meta-item">👤 5 Personen erwähnt</span>
+      </div>
+    </a>
+
+    <a href="transcript.html" class="session-card" data-testid="session-card" aria-label="Gespräch vom 28. Dezember 2024">
+      <div class="date">28. Dezember 2024</div>
+      <div class="summary">Das erste Gespräch! Oma stellte sich vor und sprach über ihre frühesten Kindheitserinnerungen aus den 1940er Jahren in der Bergstraße...</div>
+      <div class="meta-row">
+        <span class="meta-item">💬 14 Nachrichten</span>
+        <span class="meta-item">⏱ 25 Minuten</span>
+        <span class="meta-item">👤 2 Personen erwähnt</span>
+      </div>
+    </a>
+  </div>
+
+  <div class="load-more">
+    <button class="btn btn-secondary" data-testid="load-more-button">Mehr laden</button>
+  </div>
+
+  <!-- Hidden empty state for demo toggle -->
+  <div class="empty-state" id="emptyState" style="display:none;" data-testid="empty-state">
+    <div class="emoji">📖</div>
+    <p>Noch keine Gespräche — starten Sie das erste!</p>
+    <a href="conversation.html" class="btn btn-primary" data-testid="start-first-conversation">💛 Gespräch starten</a>
+  </div>
+</main>
+
+<script>
+function showAll() {
+  document.getElementById('sessionList').style.display = 'flex';
+  document.getElementById('emptyState').style.display = 'none';
+  document.querySelector('.load-more').style.display = 'block';
+  document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('[data-testid="filter-all"]').classList.add('active');
+}
+function showRecent() {
+  document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('[data-testid="filter-recent"]').classList.add('active');
+  // Show only first 2 cards for demo
+  const cards = document.querySelectorAll('.session-card');
+  cards.forEach((c, i) => c.style.display = i < 2 ? 'block' : 'none');
+}
+</script>
+</body>
+</html>

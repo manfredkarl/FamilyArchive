@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Omas Geschichten — Prototypen</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --amber: #D97706; --amber-dark: #B45309; --honey: #F59E0B;
+  --cream: #FFFBEB; --linen: #FEF3C7; --warm-white: #FEFCE8;
+  --espresso: #451A03; --brown: #78350F; --cocoa: #92400E;
+  --border: #FDE68A;
+  --font-heading: Georgia, 'Times New Roman', serif;
+  --font-body: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  --radius: 12px; --radius-lg: 16px;
+}
+body { font-family: var(--font-body); font-size: 18px; line-height: 1.6; color: var(--espresso); background: var(--cream); min-height: 100vh; }
+a { color: var(--amber); text-decoration: none; font-weight: 600; }
+a:hover { color: var(--amber-dark); text-decoration: underline; }
+a:focus-visible { outline: 3px solid var(--amber-dark); outline-offset: 2px; border-radius: 4px; }
+
+main { max-width: 800px; margin: 0 auto; padding: 48px 24px; text-align: center; }
+h1 { font-family: var(--font-heading); font-size: 42px; color: var(--espresso); margin-bottom: 8px; }
+.subtitle { font-size: 22px; color: var(--brown); margin-bottom: 48px; }
+
+.card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; text-align: left; }
+.card { background: var(--linen); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 28px; transition: box-shadow 200ms, transform 200ms; display: block; color: inherit; }
+.card:hover { box-shadow: 0 6px 24px rgba(180,83,9,0.15); transform: translateY(-2px); text-decoration: none; color: inherit; }
+.card:focus-visible { outline: 3px solid var(--amber-dark); outline-offset: 2px; }
+.card .icon { font-size: 36px; margin-bottom: 12px; }
+.card h2 { font-family: var(--font-heading); font-size: 24px; color: var(--espresso); margin-bottom: 8px; }
+.card p { font-size: 18px; color: var(--brown); }
+.card .route { font-size: 16px; color: var(--cocoa); margin-top: 12px; font-family: monospace; }
+
+.footer { margin-top: 48px; padding-top: 24px; border-top: 2px solid var(--border); }
+.footer a { margin: 0 12px; }
+
+@media (max-width: 640px) {
+  main { padding: 32px 16px; }
+  h1 { font-size: 32px; }
+  .card-grid { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<main>
+  <h1>💛 Omas Geschichten</h1>
+  <p class="subtitle">Prototypen — Übersicht aller Bildschirme</p>
+
+  <div class="card-grid">
+
+    <a href="conversation.html" class="card" data-testid="link-conversation">
+      <div class="icon">💬</div>
+      <h2>Gespräch</h2>
+      <p>Die Hauptseite — Sprach- und Textunterhaltung mit Oma. Chat-Ansicht, Mikrofon-Steuerung und Sprachstatus.</p>
+      <div class="route">/</div>
+    </a>
+
+    <a href="history.html" class="card" data-testid="link-history">
+      <div class="icon">📖</div>
+      <h2>Gesprächsverlauf</h2>
+      <p>Liste aller vergangenen Gespräche mit Datum, Zusammenfassung und Nachrichtenanzahl.</p>
+      <div class="route">/history</div>
+    </a>
+
+    <a href="transcript.html" class="card" data-testid="link-transcript">
+      <div class="icon">📝</div>
+      <h2>Gesprächsdetail</h2>
+      <p>Vollständiges Transkript eines Gesprächs mit Zeitstempeln und farbigen Entitäts-Highlights.</p>
+      <div class="route">/history/:id</div>
+    </a>
+
+    <a href="ask.html" class="card" data-testid="link-ask">
+      <div class="icon">🔍</div>
+      <h2>Fragen stellen</h2>
+      <p>Wissensdatenbank durchsuchen — „Was weißt du über Onkel Hans?" mit Quellenangaben.</p>
+      <div class="route">/ask</div>
+    </a>
+
+    <a href="timeline.html" class="card" data-testid="link-timeline">
+      <div class="icon">📅</div>
+      <h2>Zeitstrahl</h2>
+      <p>Jahrzehnt-Abdeckung von 1930 bis 2020. Lücken erkennen und Details je Dekade sehen.</p>
+      <div class="route">/timeline</div>
+    </a>
+
+    <a href="walkthrough.html" class="card" data-testid="link-walkthrough" style="background: var(--warm-white); border: 2px solid var(--amber);">
+      <div class="icon">🚶</div>
+      <h2>Walkthrough</h2>
+      <p>Schritt-für-Schritt-Anleitung durch alle Benutzerflüsse mit eingebetteten Beschreibungen.</p>
+      <div class="route">walkthrough</div>
+    </a>
+
+  </div>
+
+  <div class="footer">
+    <a href="conversation.html">Gespräch</a>
+    <a href="history.html">Verlauf</a>
+    <a href="transcript.html">Transkript</a>
+    <a href="ask.html">Fragen</a>
+    <a href="timeline.html">Zeitstrahl</a>
+    <a href="walkthrough.html">Walkthrough</a>
+  </div>
+</main>
+
+</body>
+</html>
