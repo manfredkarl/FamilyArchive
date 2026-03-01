@@ -200,6 +200,14 @@ module api 'br/public:avm/ptn/azd/container-app-upsert:0.1.1' = {
         name: 'AZURE_OPENAI_DEPLOYMENT'
         value: openai.outputs.deploymentName
       }
+      {
+        name: 'AZURE_VOICELIVE_ENDPOINT'
+        value: 'https://familyarchive.cognitiveservices.azure.com/'
+      }
+      {
+        name: 'AZURE_VOICELIVE_MODEL'
+        value: 'gpt-4o'
+      }
     ]
     containerAppsEnvironmentName: containerApps.outputs.environmentName
     containerRegistryName: containerApps.outputs.registryName
