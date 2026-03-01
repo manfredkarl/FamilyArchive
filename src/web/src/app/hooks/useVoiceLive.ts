@@ -198,13 +198,53 @@ export function useVoiceLive(): UseVoiceLiveReturn {
     nextPlayTimeRef.current = 0;
   }, []);
 
+  // ---------- save voice transcripts to API ----------
+
+  const apiSessionIdRef = useRef<string | null>(null);
+
+  const saveTranscriptsToApi = useCallback(async (entries: TranscriptEntry[]) => {
+    const finalEntries = entries.filter((e) => e.isFinal && e.text.trim());
+    if (finalEntries.length === 0) return;
+
+    try {
+      // Create a session in the API
+      const sessRes = await fetch(`${API_BASE}/api/stories/sessions`, { method: 'POST' });
+      if (!sessRes.ok) return;
+      const sessData = await sessRes.json();
+      const sessionId = sessData.session?.id;
+      if (!sessionId) return;
+      apiSessionIdRef.current = sessionId;
+
+      // Send each transcript as a message pair (user messages trigger AI entity extraction)
+      for (const entry of finalEntries) {
+        if (entry.role === 'user') {
+          await fetch(`${API_BASE}/api/stories/sessions/${sessionId}/messages`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: entry.text }),
+          });
+        }
+      }
+
+      // End the session to generate a summary
+      await fetch(`${API_BASE}/api/stories/sessions/${sessionId}/end`, { method: 'POST' });
+    } catch {
+      // Best effort — don't break the UX
+    }
+  }, []);
+
   // ---------- endSession ----------
 
   const endSession = useCallback(() => {
+    // Save transcripts before cleanup
+    setTranscripts((current) => {
+      saveTranscriptsToApi(current);
+      return current;
+    });
     cleanup();
     setState('idle');
     setInterimText('');
-  }, [cleanup]);
+  }, [cleanup, saveTranscriptsToApi]);
 
   // ---------- startSession ----------
 
@@ -400,6 +440,11 @@ export function useVoiceLive(): UseVoiceLiveReturn {
 
       ws.onclose = () => {
         if (stateRef.current !== 'idle' && stateRef.current !== 'error') {
+          // Save transcripts when VoiceLive disconnects
+          setTranscripts((current) => {
+            saveTranscriptsToApi(current);
+            return current;
+          });
           setState('idle');
         }
       };
