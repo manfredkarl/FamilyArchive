@@ -89,7 +89,7 @@ export default function AskPage() {
       </p>
 
       {/* Search input */}
-      <div className="flex w-full" style={{ gap: '12px', marginBottom: '16px' }}>
+      <div className="flex w-full" style={{ gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
         <input
           type="text"
           value={question}
@@ -99,6 +99,7 @@ export default function AskPage() {
           disabled={isLoading}
           style={{
             flex: 1,
+            minWidth: '200px',
             backgroundColor: '#FFFFFF',
             border: '2px solid #FDE68A',
             borderRadius: '12px',

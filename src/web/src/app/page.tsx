@@ -182,11 +182,12 @@ export default function Home() {
           <h1
             style={{
               fontFamily: "Georgia, 'Times New Roman', Palatino, serif",
-              fontSize: '40px',
+              fontSize: 'clamp(28px, 5vw, 40px)',
               fontWeight: 700,
               color: '#451A03',
               marginBottom: '12px',
               textAlign: 'center',
+              wordBreak: 'break-word',
             }}
           >
             💛 Omas Geschichten
@@ -224,7 +225,7 @@ export default function Home() {
               color: '#FFFFFF',
               fontSize: '22px',
               fontWeight: 700,
-              padding: '20px 48px',
+              padding: '20px clamp(32px, 5vw, 48px)',
               borderRadius: '16px',
               border: 'none',
               cursor: 'pointer',
@@ -295,8 +296,8 @@ export default function Home() {
                     t.role === 'user'
                       ? '16px 16px 4px 16px'
                       : '16px 16px 16px 4px',
-                  maxWidth: '80%',
-                  fontSize: '18px',
+                  maxWidth: '85%',
+                  fontSize: 'clamp(16px, 2.5vw, 18px)',
                   lineHeight: 1.5,
                   opacity: t.isFinal ? 1 : 0.6,
                 }}
@@ -492,13 +493,13 @@ export default function Home() {
                   alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
                   backgroundColor: msg.role === 'user' ? '#D97706' : '#FEF3C7',
                   color: msg.role === 'user' ? '#FFFFFF' : '#451A03',
-                  padding: '16px 20px',
+                  padding: 'clamp(12px, 2vw, 16px) clamp(16px, 2.5vw, 20px)',
                   borderRadius:
                     msg.role === 'user'
                       ? '16px 16px 4px 16px'
                       : '16px 16px 16px 4px',
-                  maxWidth: '80%',
-                  fontSize: '20px',
+                  maxWidth: '85%',
+                  fontSize: 'clamp(17px, 2.5vw, 20px)',
                   lineHeight: 1.6,
                 }}
               >
@@ -542,7 +543,7 @@ export default function Home() {
               </button>
             )}
 
-            <div className="flex" style={{ gap: '12px', alignItems: 'center' }}>
+            <div className="flex" style={{ gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
               {/* Mic toggle button — hidden on unsupported browsers */}
               {voiceSupported && (
                 <button
@@ -599,7 +600,7 @@ export default function Home() {
             </div>
 
             {/* Text input */}
-            <div className="flex" style={{ gap: '12px' }}>
+            <div className="flex" style={{ gap: '12px', flexWrap: 'wrap' }}>
               <input
                 type="text"
                 value={input}
@@ -636,6 +637,7 @@ export default function Home() {
                   opacity: isLoading || !input.trim() ? 0.5 : 1,
                   minWidth: '48px',
                   minHeight: '48px',
+                  flexShrink: 0,
                 }}
               >
                 ➤ Senden

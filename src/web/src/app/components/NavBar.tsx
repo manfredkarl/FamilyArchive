@@ -9,8 +9,11 @@ export default function NavBar() {
       style={{
         backgroundColor: '#FFFBEB',
         borderColor: '#FDE68A',
-        height: '64px',
+        minHeight: '64px',
+        height: 'auto',
         fontSize: '18px',
+        flexWrap: 'wrap',
+        padding: '8px 24px',
       }}
     >
       <Link
@@ -20,7 +23,7 @@ export default function NavBar() {
       >
         💛 Omas Geschichten
       </Link>
-      <div className="flex items-center" style={{ gap: '24px' }}>
+      <div className="flex items-center" style={{ gap: 'clamp(12px, 3vw, 24px)', flexWrap: 'wrap' }}>
         <Link
           href="/history"
           className="hover:underline"

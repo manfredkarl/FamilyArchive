@@ -99,7 +99,7 @@ export default function TimelinePage() {
         backgroundColor: '#FFFBEB',
         minHeight: 'calc(100vh - 64px)',
         paddingTop: '32px',
-        maxWidth: '1000px',
+        maxWidth: 'min(1000px, 100%)',
         margin: '0 auto',
       }}
     >
@@ -150,7 +150,7 @@ export default function TimelinePage() {
                 minHeight: '48px',
               }}
             >
-              <span style={{ fontSize: '18px', fontWeight: 600, color: '#451A03', minWidth: '60px' }}>
+              <span style={{ fontSize: '18px', fontWeight: 600, color: '#451A03', minWidth: '60px', wordBreak: 'break-word' }}>
                 {d.decade}
               </span>
               <div style={{ flex: 1, height: '24px', backgroundColor: '#F3F4F6', borderRadius: '12px', overflow: 'hidden' }}>

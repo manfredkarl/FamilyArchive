@@ -148,13 +148,13 @@ export default function HistoryPage() {
                     backgroundColor: '#FEF3C7',
                     border: '1px solid #FDE68A',
                     borderRadius: '16px',
-                    padding: '20px 24px',
+                    padding: 'clamp(12px, 3vw, 24px)',
                     cursor: 'pointer',
                     boxShadow: '0 2px 8px rgba(180, 83, 9, 0.08)',
                     transition: 'box-shadow 0.2s',
                   }}
                 >
-                  <div className="flex justify-between items-start" style={{ marginBottom: '8px' }}>
+                  <div className="flex justify-between items-start" style={{ marginBottom: '8px', flexWrap: 'wrap' }}>
                     <span style={{ fontSize: '18px', fontWeight: 600, color: '#451A03' }}>
                       {formatDate(session.startedAt)}
                     </span>

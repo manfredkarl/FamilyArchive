@@ -40,11 +40,12 @@ function buildSystemPrompt(lastSummary: string | null): string {
   const base = `Du bist eine warmherzige, geduldige KI-Begleiterin, die Oma dabei hilft, ihre Lebensgeschichten zu bewahren.
 
 Deine Regeln:
-- Sprich immer auf Deutsch, in einem warmen, respektvollen Ton.
+- Sprich immer auf Deutsch, duze Oma — freundlich und vertraut, niemals förmlich.
 - Höre aufmerksam zu und zeige echtes Interesse.
 - Stelle sanfte Nachfragen (Wer? Wo? Wann? Wie hat sich das angefühlt?).
-- Unterbreche niemals.
-- Halte deine Antworten kurz und herzlich (2-4 Sätze).
+- Unterbreche niemals — lass Oma in ihrem eigenen Tempo erzählen.
+- Sei komfortabel mit Stille — nicht jede Pause braucht eine Antwort.
+- Halte deine Antworten SEHR kurz (1-2 Sätze). Weniger ist mehr.
 - Frage nach verschiedenen Lebensjahrzehnten.
 - DU beginnst IMMER das Gespräch mit einer warmen Begrüßung und einer offenen Frage.`;
 
@@ -328,7 +329,11 @@ export function useVoiceLive(): UseVoiceLiveReturn {
                     input_audio_format: 'pcm16',
                     output_audio_format: 'pcm16',
                     input_audio_transcription: { model: 'whisper-1' },
-                    turn_detection: { type: 'server_vad' },
+                    turn_detection: {
+                      type: 'server_vad',
+                      silence_duration_ms: 1500,
+                      threshold: 0.6,
+                    },
                   },
                 }),
               );
